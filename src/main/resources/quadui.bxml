@@ -1,0 +1,64 @@
+<quadui:QuadUIWindow title="AgMIP QuAD UI" maximized="true"
+    xmlns:bxml="http://pivot.apache.org/bxml"
+    xmlns:content="org.apache.pivot.wtk.content"
+    xmlns:menus="org.apache.pivot.wtk.menus"
+    xmlns:quadui="org.agmip.ui.quadui"
+    xmlns="org.apache.pivot.wtk">
+
+    <actionMappings>
+        <Window.ActionMapping action="fileQuit" keyStroke="CMD-Q" />
+    </actionMappings>
+
+    <TablePane styles="{horizontalSpacing:6, verticalSpacing:6, showVerticalGridLines:true, padding:2}">
+        <columns>
+            <TablePane.Column width="1*" />
+        </columns>
+
+        <TablePane.Row height="-1">
+            <MenuBar>
+                <MenuBar.Item buttonData="File">
+                    <Menu>
+                        <Menu.Section>
+                            <Menu.Item action="fileQuit">
+                                <buttonData>
+                                    <content:MenuItemData text="Quit" keyboardShortcut="CMD-Q" />
+                                </buttonData>
+                            </Menu.Item>
+                        </Menu.Section>
+                    </Menu>
+                </MenuBar.Item>
+            </MenuBar>
+        </TablePane.Row>
+
+        <TablePane.Row height="1*">
+            <Border styles="{padding:2, color: '#777777'}">
+                <BoxPane orientation="vertical" styles="{padding:{bottom:16, left: 6}}">
+                    <BoxPane orientation="vertical" styles="{padding: 6}">
+                        <Label text="File To Convert:" styles="{font:{bold:true}}" />
+                        <BoxPane orientation="horizontal"><TextInput bxml:id="convertText" editable="true"/><PushButton bxml:id="browseConvertButton" buttonData="Browse"/></BoxPane>
+                    </BoxPane>
+                    <BoxPane orientation="vertical" styles="{padding: 6}">
+                        <Label text="Output Directory:" styles="{font:{bold:true}}" />
+                        <BoxPane orientation="horizontal"><TextInput bxml:id="outputText" editable="true"/><PushButton bxml:id="browseOutputButton" buttonData="Browse"/></BoxPane>
+                    </BoxPane>
+                    <BoxPane orientation="vertical" styles="{padding:6}">
+                        <Border title="Output to:" styles="{padding:6}">
+                            <BoxPane orientation="vertical">
+                                <bxml:define>
+                                    <ButtonGroup bxml:id="models"/>
+                                </bxml:define>
+                                <Checkbox bxml:id="model-dssat" buttonData="DSSAT"/>
+                                <Checkbox bxml:id="model-apsim" buttonData="APSIM"/>
+                                <Checkbox bxml:id="model-json"  buttonData="JSON" />
+                            </BoxPane>
+                        </Border>
+                    </BoxPane>
+                    <BoxPane orientation="horizontal" styles="{padding:6}">
+                        <PushButton bxml:id="convertButton" buttonData="Convert" styles="{padding:{left:16,right:16}}"/>
+                        <ActivityIndicator bxml:id="convertIndicator" preferredWidth="16" preferredHeight="16" styles="{color:'#777777'}"/>
+                    </BoxPane>
+                </BoxPane>
+            </Border>
+        </TablePane.Row>
+    </TablePane>
+</quadui:QuadUIWindow>
