@@ -9,7 +9,6 @@ import java.util.LinkedHashMap;
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskExecutionException;
 
-import org.agmip.core.types.TranslatorOutput;
 import org.agmip.translators.apsim.ApsimOutput;
 import org.agmip.translators.dssat.DssatControllerOutput;
 
@@ -82,8 +81,9 @@ public class TranslateToTask extends Task<String> {
 			}
 			executor.shutdown();
 			while(! executor.isTerminated()){}
+                        executor = null;
+                        this.data = null;
 		} catch(Exception ex) {
-			ex.printStackTrace();
 			throw new TaskExecutionException(ex);
 		}
 		return null;
