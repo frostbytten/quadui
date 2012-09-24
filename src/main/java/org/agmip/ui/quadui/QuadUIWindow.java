@@ -2,6 +2,7 @@ package org.agmip.ui.quadui;
 
 import java.net.URL;
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -14,7 +15,6 @@ import org.apache.pivot.beans.Bindable;
 import org.apache.pivot.collections.Map;
 import org.apache.pivot.util.Resources;
 import org.apache.pivot.util.Filter;
-import org.apache.pivot.util.Vote;
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskListener;
 import org.apache.pivot.wtk.Action;
@@ -35,7 +35,6 @@ import org.apache.pivot.wtk.Sheet;
 import org.apache.pivot.wtk.SheetCloseListener;
 import org.apache.pivot.wtk.TaskAdapter;
 import org.apache.pivot.wtk.TextInput;
-import org.apache.pivot.wtk.TextInputContentListener;
 import org.apache.pivot.wtk.Window;
 
 
@@ -115,7 +114,12 @@ public class QuadUIWindow extends Window implements Bindable {
                     return;
                 }
                 LOG.info("Starting translation job");
-                startTranslation();
+                try {
+                    startTranslation();
+                } catch(Exception ex) {
+                    LOG.error(getStackTrace(ex));
+                    
+                }
             }
         });
 
@@ -131,7 +135,8 @@ public class QuadUIWindow extends Window implements Bindable {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv")
                                 && (!file.getName().toLowerCase().endsWith(".zip")
-                                && (!file.getName().toLowerCase().endsWith(".json")))));
+                                && (!file.getName().toLowerCase().endsWith(".json")
+                                && (!file.getName().toLowerCase().endsWith(".agmip"))))));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -140,6 +145,11 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File convertFile = browse.getSelectedFile();
                             convertText.setText(convertFile.getPath());
+                            if (outputText.getText().contains("")) {
+                                try {
+                                outputText.setText(convertFile.getCanonicalFile().getParent()); 
+                                } catch (IOException ex) {}
+                            }
                         }
                     }
                 });
@@ -164,7 +174,7 @@ public class QuadUIWindow extends Window implements Bindable {
         });
     }
 
-    private void startTranslation() {
+    private void startTranslation() throws Exception {
         convertIndicator.setActive(true);
         if (convertText.getText().endsWith(".json")) {
             try {
