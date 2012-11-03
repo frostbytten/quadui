@@ -48,11 +48,13 @@ public class QuadUIWindow extends Window implements Bindable {
     private PushButton convertButton = null;
     private PushButton browseToConvert = null;
     private PushButton browseOutputDir = null;
+    private PushButton browseDomeFile = null;
     private Checkbox modelApsim = null;
     private Checkbox modelDssat = null;
     private Checkbox modelJson = null;
     private TextInput outputText = null;
     private TextInput convertText = null;
+    private TextInput domeText = null;
     private ArrayList<Checkbox> checkboxGroup = new ArrayList<Checkbox>();
     private ArrayList<String> errors = new ArrayList<String>();
 
@@ -92,14 +94,18 @@ public class QuadUIWindow extends Window implements Bindable {
         convertButton = (PushButton) ns.get("convertButton");
         browseToConvert = (PushButton) ns.get("browseConvertButton");
         browseOutputDir = (PushButton) ns.get("browseOutputButton");
+        browseDomeFile  = (PushButton) ns.get("browseDomeButton");
         convertText = (TextInput) ns.get("convertText");
-        outputText = (TextInput) ns.get("outputText");
+        outputText  = (TextInput) ns.get("outputText");
+        domeText    = (TextInput) ns.get("domeText");
         modelApsim = (Checkbox) ns.get("model-apsim");
         modelDssat = (Checkbox) ns.get("model-dssat");
         modelJson = (Checkbox) ns.get("model-json");
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
         checkboxGroup.add(modelJson);
+
+        outputText.setText("");
 
         convertButton.getButtonPressListeners().add(new ButtonPressListener() {
 
@@ -126,8 +132,12 @@ public class QuadUIWindow extends Window implements Bindable {
         browseToConvert.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
-                final FileBrowserSheet browse = new FileBrowserSheet();
-                browse.setMode(FileBrowserSheet.Mode.OPEN);
+                final FileBrowserSheet browse;
+                if (outputText.getText().equals("")) {
+                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
+                } else {
+                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+                }
                 browse.setDisabledFileFilter(new Filter<File>() {
 
                     @Override
@@ -159,8 +169,7 @@ public class QuadUIWindow extends Window implements Bindable {
         browseOutputDir.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
-                final FileBrowserSheet browse = new FileBrowserSheet();
-                browse.setMode(FileBrowserSheet.Mode.SAVE_TO);
+                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO, outputText.getText());
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
                     @Override
                     public void sheetClosed(Sheet sheet) {
@@ -172,6 +181,31 @@ public class QuadUIWindow extends Window implements Bindable {
                 });
             }
         });
+
+        browseDomeFile.getButtonPressListeners().add(new ButtonPressListener() {
+            @Override
+            public void buttonPressed(Button button) {
+                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+                browse.setDisabledFileFilter(new Filter<File>() {
+
+                    @Override
+                    public boolean include(File file) {
+                        return (file.isFile()
+                                && (!file.getName().toLowerCase().endsWith(".csv")));
+                    }
+                });
+                browse.open(QuadUIWindow.this, new SheetCloseListener() {
+                    @Override
+                    public void sheetClosed(Sheet sheet) {
+                        if (sheet.getResult()) {
+                            File domeFile = browse.getSelectedFile();
+                            domeText.setText(domeFile.getPath());
+                        }
+                    }
+                });
+            }
+        });
+
     }
 
     private void startTranslation() throws Exception {

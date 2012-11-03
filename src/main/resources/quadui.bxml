@@ -35,11 +35,15 @@
                 <BoxPane orientation="vertical" styles="{padding:{bottom:16, left: 6}}">
                     <BoxPane orientation="vertical" styles="{padding: 6}">
                         <Label text="File To Convert:" styles="{font:{bold:true}}" />
-                        <BoxPane orientation="horizontal"><TextInput bxml:id="convertText" editable="true"/><PushButton bxml:id="browseConvertButton" buttonData="Browse"/></BoxPane>
+                        <BoxPane orientation="horizontal"><TextInput bxml:id="convertText" editable="false"/><PushButton bxml:id="browseConvertButton" buttonData="Browse"/></BoxPane>
                     </BoxPane>
                     <BoxPane orientation="vertical" styles="{padding: 6}">
                         <Label text="Output Directory:" styles="{font:{bold:true}}" />
-                        <BoxPane orientation="horizontal"><TextInput bxml:id="outputText" editable="true"/><PushButton bxml:id="browseOutputButton" buttonData="Browse"/></BoxPane>
+                        <BoxPane orientation="horizontal"><TextInput bxml:id="outputText" editable="false"/><PushButton bxml:id="browseOutputButton" buttonData="Browse"/></BoxPane>
+                    </BoxPane>
+                    <BoxPane orientation="vertical" styles="{padding: 6}">
+                        <Label text="DOME File (optional):" styles="{font:{bold:true}}" />
+                        <BoxPane orientation="horizontal"><TextInput bxml:id="domeText" editable="false"/><PushButton bxml:id="browseDomeButton" buttonData="Browse"/></BoxPane>
                     </BoxPane>
                     <BoxPane orientation="vertical" styles="{padding:6}">
                         <Border title="Output to:" styles="{padding:6}">
