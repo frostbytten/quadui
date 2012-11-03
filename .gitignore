@@ -7,3 +7,5 @@ target/*
 *.tmp
 nbactions.xml
 run.sh
+
+*.log

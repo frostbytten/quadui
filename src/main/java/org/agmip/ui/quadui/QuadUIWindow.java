@@ -7,7 +7,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Scanner;
 
 
@@ -180,18 +180,18 @@ public class QuadUIWindow extends Window implements Bindable {
             try {
                 // Load the JSON representation into memory and send it down the line.
                 String json = new Scanner(new File(convertText.getText()), "UTF-8").useDelimiter("\\A").next();
-                LinkedHashMap data = fromJSON(json);
+                HashMap data = fromJSON(json);
                 toOutput(data);
             } catch (Exception ex) {
                 LOG.error(getStackTrace(ex));
             }
         } else {
             TranslateFromTask task = new TranslateFromTask(convertText.getText());
-            TaskListener<LinkedHashMap> listener = new TaskListener<LinkedHashMap>() {
+            TaskListener<HashMap> listener = new TaskListener<HashMap>() {
 
                 @Override
-                public void taskExecuted(Task<LinkedHashMap> t) {
-                    LinkedHashMap data = t.getResult();
+                public void taskExecuted(Task<HashMap> t) {
+                    HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
                         toOutput(data);
                     } else {
@@ -200,18 +200,18 @@ public class QuadUIWindow extends Window implements Bindable {
                 }
 
                 @Override
-                public void executeFailed(Task<LinkedHashMap> arg0) {
+                public void executeFailed(Task<HashMap> arg0) {
                     Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
                     LOG.error(getStackTrace(arg0.getFault()));
                     convertIndicator.setActive(false);
                     convertButton.setEnabled(true);
                 }
             };
-            task.execute(new TaskAdapter<LinkedHashMap>(listener));
+            task.execute(new TaskAdapter<HashMap>(listener));
         }
     }
 
-    private void toOutput(LinkedHashMap map) {
+    private void toOutput(HashMap map) {
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {
             models.add("JSON");

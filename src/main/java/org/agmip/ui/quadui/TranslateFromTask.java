@@ -2,7 +2,7 @@ package org.agmip.ui.quadui;
 
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -12,7 +12,7 @@ import org.agmip.translators.csv.CSVInput;
 import org.agmip.translators.dssat.DssatControllerInput;
 import org.agmip.translators.agmip.AgmipInput;
 
-public class TranslateFromTask extends Task<LinkedHashMap> {
+public class TranslateFromTask extends Task<HashMap> {
 
     private String file;
     private TranslatorInput translator;
@@ -48,10 +48,10 @@ public class TranslateFromTask extends Task<LinkedHashMap> {
     }
 
     @Override
-    public LinkedHashMap<String, Object> execute() {
-        LinkedHashMap<String, Object> output = new LinkedHashMap<String, Object>();
+    public HashMap<String, Object> execute() {
+        HashMap<String, Object> output = new HashMap<String, Object>();
         try {
-            output = (LinkedHashMap<String, Object>) translator.readFile(file);
+            output = (HashMap<String, Object>) translator.readFile(file);
             return output;
         } catch (Exception ex) {
             output.put("errors", ex.getMessage());

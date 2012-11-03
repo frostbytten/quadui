@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 
 
 import org.agmip.core.types.TranslatorOutput;
@@ -23,13 +23,13 @@ import static org.agmip.util.JSONAdapter.toJSON;
 
 public class TranslateToTask extends Task<String> {
 
-    private LinkedHashMap data;
+    private HashMap data;
     private ArrayList<String> translateList;
     private ArrayList<String> weatherList, soilList;
     private String destDirectory;
     private static Logger LOG = LoggerFactory.getLogger(TranslateToTask.class);
 
-    public TranslateToTask(ArrayList<String> translateList, LinkedHashMap data, String destDirectory) {
+    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory) {
         this.data = data;
         this.destDirectory = destDirectory;
         this.translateList = new ArrayList<String>();
@@ -41,13 +41,13 @@ public class TranslateToTask extends Task<String> {
             }
         }
         if (data.containsKey("weathers")) {
-            for (LinkedHashMap<String, Object> stations : (ArrayList<LinkedHashMap>) data.get("weathers")) {
+            for (HashMap<String, Object> stations : (ArrayList<HashMap>) data.get("weathers")) {
                 weatherList.add((String) stations.get("wst_id"));
             }
         }
 
         if (data.containsKey("soils")) {
-            for (LinkedHashMap<String, Object> soils : (ArrayList<LinkedHashMap>) data.get("soils")) {
+            for (HashMap<String, Object> soils : (ArrayList<HashMap>) data.get("soils")) {
                 soilList.add((String) soils.get("soil_id"));
             }
         }
@@ -69,17 +69,17 @@ public class TranslateToTask extends Task<String> {
                         // Handle translators that do not support the multi-experiment
                         // format.
                         if (data.containsKey("experiments")) {
-                            for (LinkedHashMap<String, Object> experiment : (ArrayList<LinkedHashMap>) data.get("experiments")) {
-                                LinkedHashMap<String, Object> temp = new LinkedHashMap<String, Object>(experiment);
+                            for (HashMap<String, Object> experiment : (ArrayList<HashMap>) data.get("experiments")) {
+                                HashMap<String, Object> temp = new HashMap<String, Object>(experiment);
                                 int wKey, sKey;
                                 if (temp.containsKey("wst_id")) {
                                     if ((wKey = weatherList.indexOf((String) temp.get("wst_id"))) != -1) {
-                                        temp.put("weather", ((ArrayList<LinkedHashMap<String, Object>>) data.get("weathers")).get(wKey));
+                                        temp.put("weather", ((ArrayList<HashMap<String, Object>>) data.get("weathers")).get(wKey));
                                     }
                                 }
                                 if (temp.containsKey("soil_id")) {
                                     if ((sKey = soilList.indexOf((String) temp.get("soil_id"))) != -1) {
-                                        temp.put("soil", ((ArrayList<LinkedHashMap<String, Object>>) data.get("soils")).get(sKey));
+                                        temp.put("soil", ((ArrayList<HashMap<String, Object>>) data.get("soils")).get(sKey));
                                     }
                                 }
                                 LOG.info("JSON of temp:"+toJSON(temp));
@@ -119,7 +119,7 @@ public class TranslateToTask extends Task<String> {
      *                proper <code>TranslatorOutput</code> 
      * @param data The data to translate
      */
-    private void submitTask(ExecutorService executor, String trType, LinkedHashMap<String, Object> data, boolean wthOnly) {
+    private void submitTask(ExecutorService executor, String trType, HashMap<String, Object> data, boolean wthOnly) {
         TranslatorOutput translator = null;
         String destination = "";
         if (trType.equals("DSSAT")) {
