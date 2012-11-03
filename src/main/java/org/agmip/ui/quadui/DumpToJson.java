@@ -4,7 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskExecutionException;
@@ -13,10 +13,10 @@ import org.apache.pivot.util.concurrent.TaskExecutionException;
 import static org.agmip.util.JSONAdapter.toJSON;
 
 public class DumpToJson extends Task<String> {
-	private LinkedHashMap data;
+	private HashMap data;
 	private String fileName, directoryName;
 	
-	public DumpToJson(String file, String dirName, LinkedHashMap data) {
+	public DumpToJson(String file, String dirName, HashMap data) {
 		this.fileName = file;
 		this.directoryName = dirName;
 		this.data = data;
