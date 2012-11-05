@@ -2,12 +2,14 @@ package org.agmip.ui.quadui;
 
 import java.net.URL;
 import java.io.File;
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Properties;
 import java.util.Scanner;
 
 
@@ -37,8 +39,9 @@ import org.apache.pivot.wtk.TaskAdapter;
 import org.apache.pivot.wtk.TextInput;
 import org.apache.pivot.wtk.Window;
 
-
 import static org.agmip.util.JSONAdapter.*;
+import org.agmip.util.MapUtil;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,13 +55,30 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox modelApsim = null;
     private Checkbox modelDssat = null;
     private Checkbox modelJson = null;
+    private Label txtStatus = null;
+    private Label txtVersion = null;
     private TextInput outputText = null;
     private TextInput convertText = null;
     private TextInput domeText = null;
     private ArrayList<Checkbox> checkboxGroup = new ArrayList<Checkbox>();
     private ArrayList<String> errors = new ArrayList<String>();
+    private Properties versionProperties = new Properties();
+    private String quadVersion = "";
 
     public QuadUIWindow() {
+        try {
+            InputStream versionFile = getClass().getClassLoader().getResourceAsStream("git.properties");
+            versionProperties.load(versionFile);
+            versionFile.close();
+            StringBuilder qv = new StringBuilder();
+            qv.append("Version ");
+            qv.append(versionProperties.getProperty("git.commit.id.describe").toString());
+            qv.append("("+versionProperties.getProperty("git.branch").toString()+")");
+            quadVersion = qv.toString();
+        } catch (IOException ex) {
+            LOG.error("Unable to load version information, version will be blank.");
+        }
+        
         Action.getNamedActions().put("fileQuit", new Action() {
             @Override
             public void perform(Component src) {
@@ -90,22 +110,26 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     public void initialize(Map<String, Object> ns, URL location, Resources res) {
-        convertIndicator = (ActivityIndicator) ns.get("convertIndicator");
-        convertButton = (PushButton) ns.get("convertButton");
-        browseToConvert = (PushButton) ns.get("browseConvertButton");
-        browseOutputDir = (PushButton) ns.get("browseOutputButton");
-        browseDomeFile  = (PushButton) ns.get("browseDomeButton");
-        convertText = (TextInput) ns.get("convertText");
-        outputText  = (TextInput) ns.get("outputText");
-        domeText    = (TextInput) ns.get("domeText");
-        modelApsim = (Checkbox) ns.get("model-apsim");
-        modelDssat = (Checkbox) ns.get("model-dssat");
-        modelJson = (Checkbox) ns.get("model-json");
+        convertIndicator    = (ActivityIndicator) ns.get("convertIndicator");
+        convertButton       = (PushButton) ns.get("convertButton");
+        browseToConvert     = (PushButton) ns.get("browseConvertButton");
+        browseOutputDir     = (PushButton) ns.get("browseOutputButton");
+        browseDomeFile      = (PushButton) ns.get("browseDomeButton");
+        txtStatus           = (Label) ns.get("txtStatus");
+        txtVersion          = (Label) ns.get("txtVersion");
+        convertText         = (TextInput) ns.get("convertText");
+        outputText          = (TextInput) ns.get("outputText");
+        domeText            = (TextInput) ns.get("domeText");
+        modelApsim          = (Checkbox) ns.get("model-apsim");
+        modelDssat          = (Checkbox) ns.get("model-dssat");
+        modelJson           = (Checkbox) ns.get("model-json");
+
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
         checkboxGroup.add(modelJson);
 
         outputText.setText("");
+        txtVersion.setText(quadVersion);
 
         convertButton.getButtonPressListeners().add(new ButtonPressListener() {
 
@@ -210,12 +234,17 @@ public class QuadUIWindow extends Window implements Bindable {
 
     private void startTranslation() throws Exception {
         convertIndicator.setActive(true);
+        txtStatus.setText("Importing data...");
         if (convertText.getText().endsWith(".json")) {
             try {
                 // Load the JSON representation into memory and send it down the line.
                 String json = new Scanner(new File(convertText.getText()), "UTF-8").useDelimiter("\\A").next();
                 HashMap data = fromJSON(json);
-                toOutput(data);
+                if (domeText.getText().equals("")) {                            
+                    toOutput(data);
+                } else {
+                    applyDome(data);
+                }
             } catch (Exception ex) {
                 LOG.error(getStackTrace(ex));
             }
@@ -227,7 +256,11 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void taskExecuted(Task<HashMap> t) {
                     HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
-                        toOutput(data);
+                        if (domeText.getText().equals("")) {
+                            toOutput(data);
+                        } else {
+                            applyDome(data);
+                        }
                     } else {
                         Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
                     }
@@ -245,7 +278,34 @@ public class QuadUIWindow extends Window implements Bindable {
         }
     }
 
+    private void applyDome(HashMap map) {
+        txtStatus.setText("Applying DOME...");
+        ApplyDomeTask task = new ApplyDomeTask(domeText.getText(), map);
+        TaskListener<HashMap> listener = new TaskListener<HashMap>() {
+            @Override
+            public void taskExecuted(Task<HashMap> t) {
+                HashMap data = t.getResult();
+                if (!data.containsKey("errors")) {
+                    //LOG.error("Domeoutput: {}", data.get("domeoutput"));
+                    toOutput((HashMap) data.get("domeoutput"));
+                } else {
+                    Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);  
+                }
+            }
+
+            @Override
+            public void executeFailed(Task<HashMap> arg0) {
+                Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                    LOG.error(getStackTrace(arg0.getFault()));
+                    convertIndicator.setActive(false);
+                    convertButton.setEnabled(true);
+            }
+        };
+        task.execute(new TaskAdapter<HashMap>(listener));
+    }
+
     private void toOutput(HashMap map) {
+        txtStatus.setText("Generating model input files...");
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {
             models.add("JSON");
@@ -309,10 +369,11 @@ public class QuadUIWindow extends Window implements Bindable {
 
                 @Override
                 public void taskExecuted(Task<String> arg0) {
+                    txtStatus.setText("Completed");
                     Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
                     convertIndicator.setActive(false);
                     convertButton.setEnabled(true);
-                    LOG.info("Completed translation job");
+                    LOG.info("=== Completed translation job ===");
                 }
             };
             task.execute(new TaskAdapter<String>(listener));

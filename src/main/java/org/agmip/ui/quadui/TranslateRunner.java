@@ -31,5 +31,4 @@ public class TranslateRunner implements Runnable {
 			e.printStackTrace();
 		}
 	}
-
 }

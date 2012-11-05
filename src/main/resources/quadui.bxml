@@ -61,8 +61,16 @@
                         <PushButton bxml:id="convertButton" buttonData="Convert" styles="{padding:{left:16,right:16}}"/>
                         <ActivityIndicator bxml:id="convertIndicator" preferredWidth="16" preferredHeight="16" styles="{color:'#777777'}"/>
                     </BoxPane>
+                    <BoxPane orientation="vertical" styles="{padding:6}">
+                        <BoxPane orientation="horizontal">
+                            <Label text="Status:" styles="{font:{bold:true}}" /><Label bxml:id="txtStatus" />
+                        </BoxPane>
+                    </BoxPane>
                 </BoxPane>
             </Border>
+        </TablePane.Row>
+        <TablePane.Row height="-1">
+            <Label bxml:id="txtVersion" />
         </TablePane.Row>
     </TablePane>
 </quadui:QuadUIWindow>
