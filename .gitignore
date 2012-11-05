@@ -9,3 +9,4 @@ nbactions.xml
 run.sh
 
 *.log
+/src/main/resources/git.properties
