@@ -52,6 +52,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private PushButton browseToConvert = null;
     private PushButton browseOutputDir = null;
     private PushButton browseDomeFile = null;
+    private PushButton removeDomeBtn = null;
     private Checkbox modelApsim = null;
     private Checkbox modelDssat = null;
     private Checkbox modelJson = null;
@@ -115,6 +116,7 @@ public class QuadUIWindow extends Window implements Bindable {
         browseToConvert     = (PushButton) ns.get("browseConvertButton");
         browseOutputDir     = (PushButton) ns.get("browseOutputButton");
         browseDomeFile      = (PushButton) ns.get("browseDomeButton");
+        removeDomeBtn       = (PushButton) ns.get("removeDomeButton");
         txtStatus           = (Label) ns.get("txtStatus");
         txtVersion          = (Label) ns.get("txtVersion");
         convertText         = (TextInput) ns.get("convertText");
@@ -227,6 +229,13 @@ public class QuadUIWindow extends Window implements Bindable {
                         }
                     }
                 });
+            }
+        });
+
+        removeDomeBtn.getButtonPressListeners().add(new ButtonPressListener(){
+            @Override
+            public void buttonPressed(Button button) {
+                domeText.setText("");
             }
         });
 

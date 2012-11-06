@@ -43,7 +43,7 @@
                     </BoxPane>
                     <BoxPane orientation="vertical" styles="{padding: 6}">
                         <Label text="DOME File (optional):" styles="{font:{bold:true}}" />
-                        <BoxPane orientation="horizontal"><TextInput bxml:id="domeText" editable="false"/><PushButton bxml:id="browseDomeButton" buttonData="Browse"/></BoxPane>
+                        <BoxPane orientation="horizontal"><TextInput bxml:id="domeText" editable="false"/><PushButton bxml:id="browseDomeButton" buttonData="Browse"/><PushButton bxml:id="removeDomeButton" buttonData="Clear DOME" /></BoxPane>
                     </BoxPane>
                     <BoxPane orientation="vertical" styles="{padding:6}">
                         <Border title="Output to:" styles="{padding:6}">
