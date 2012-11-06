@@ -332,6 +332,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
                 @Override
                 public void taskExecuted(Task<String> t) {
+                    txtStatus.setText("Completed");
                     Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
                     convertIndicator.setActive(false);
                     convertButton.setEnabled(true);
