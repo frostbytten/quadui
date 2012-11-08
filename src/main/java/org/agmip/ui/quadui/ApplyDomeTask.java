@@ -14,6 +14,8 @@ import org.apache.pivot.util.concurrent.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.agmip.dome.DomeUtil;
+
 public class ApplyDomeTask extends Task<HashMap> {
     private static Logger log = LoggerFactory.getLogger(ApplyDomeTask.class);
     private HashMap m;
@@ -29,20 +31,23 @@ public class ApplyDomeTask extends Task<HashMap> {
         DomeInput translator = new DomeInput();
         HashMap<String, Object> output = new HashMap<String, Object>();
         ArrayList<HashMap<String, String>> rules = null;
-        ArrayList<HashMap<String, String>> info = null;
-        HashMap<String, ArrayList<HashMap<String, String>>> dome;
+        HashMap<String, String> info = null;
+        HashMap<String, Object> dome;
         Engine domeEngine;
         // Load the dome
-        try {
-            dome = (HashMap<String, ArrayList<HashMap<String, String>>>) translator.readFile(file);
+
+         try {
+            dome = (HashMap<String, Object>) translator.readFile(file);
         } catch (Exception ex) {
             output.put("errors", ex.getMessage());
             return output;
         }
+        String domeName = DomeUtil.generateDomeName(dome);
+        info = DomeUtil.getDomeInfo(dome);
+        rules = DomeUtil.getDomeRules(dome);
 
-        rules = dome.get("rules");
-        log.error("DOME Shell: {}", dome);
-        if (rules != null) {
+        log.debug("DOME Shell: {}", dome);
+        if (! rules.isEmpty()) {
             domeEngine = new Engine(rules);
         } else {
             return m;
