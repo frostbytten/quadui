@@ -217,7 +217,8 @@ public class QuadUIWindow extends Window implements Bindable {
                     @Override
                     public boolean include(File file) {
                         return (file.isFile()
-                                && (!file.getName().toLowerCase().endsWith(".csv")));
+                                && (!file.getName().toLowerCase().endsWith(".csv"))
+                                && (!file.getName().toLowerCase().endsWith(".zip")));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -252,6 +253,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 if (domeText.getText().equals("")) {                            
                     toOutput(data);
                 } else {
+                    LOG.warn("Attempting to apply a new DOME");
                     applyDome(data);
                 }
             } catch (Exception ex) {
