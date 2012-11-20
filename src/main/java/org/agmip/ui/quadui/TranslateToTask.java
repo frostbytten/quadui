@@ -82,7 +82,7 @@ public class TranslateToTask extends Task<String> {
                                         temp.put("soil", ((ArrayList<HashMap<String, Object>>) data.get("soils")).get(sKey));
                                     }
                                 }
-                                LOG.info("JSON of temp:"+toJSON(temp));
+                                LOG.debug("JSON of temp:"+toJSON(temp));
                                 // need to re-implement properly for threading apsim
                                 //submitTask(executor, tr, temp);
                                 if(tr.equals("APSIM")) {
@@ -132,7 +132,7 @@ public class TranslateToTask extends Task<String> {
             translator = new ApsimOutput();
         }
         destination = destDirectory + File.separator + trType;
-        LOG.info("Translating with :"+translator.getClass().getName());
+        LOG.debug("Translating with :"+translator.getClass().getName());
         Runnable thread = new TranslateRunner(translator, data, destination);
         executor.execute(thread);
     }
