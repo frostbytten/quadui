@@ -2,6 +2,7 @@ package org.agmip.ui.quadui;
 
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -34,7 +35,7 @@ public class ApplyDomeTask extends Task<HashMap> {
 
         log.debug("Loading DOME file: {}", fileName);
 
-        if (fileNameTest.endsWith(".ZIP") && ! fileNameTest.startsWith(".")) {
+        if (fileNameTest.endsWith(".ZIP")) {
             log.debug("Entering Zip file handling");
             ZipFile z = null;
             try {
@@ -43,8 +44,9 @@ public class ApplyDomeTask extends Task<HashMap> {
                 while (entries.hasMoreElements()) {
                     // Do we handle nested zips? Not yet.
                     ZipEntry entry = (ZipEntry) entries.nextElement();
-                    log.debug("Processing file: {}", entry.getName());
-                    if (entry.getName().toLowerCase().endsWith(".csv")) {
+                    File zipFileName = new File(entry.getName());
+                    if (zipFileName.getName().toLowerCase().endsWith(".csv") && ! zipFileName.getName().startsWith(".")) {
+                        log.debug("Processing file: {}", zipFileName.getName());
                         translator.readCSV(z.getInputStream(entry));
                         HashMap<String, Object> dome = translator.getDome();
                         String domeName = DomeUtil.generateDomeName(dome);
