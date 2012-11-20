@@ -8,11 +8,12 @@
     </encoder>
   </appender> 
 
+<!-- UNCOMMENT WHICH COMPONENTS TO DEBUG 
   <logger name="org.agmip.functions" level="DEBUG" />
   <logger name="org.agmip.dome" level="DEBUG" />
   <logger name="org.agmip.dome.DomeFunctions" level="DEBUG" />
   <logger name="org.agmip.ui.quadui" level="DEBUG" />
-
+-->
   <root level="INFO">
     <appender-ref ref="FILE" />
   </root>
