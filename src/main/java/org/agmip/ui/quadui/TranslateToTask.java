@@ -14,6 +14,7 @@ import org.apache.pivot.util.concurrent.TaskExecutionException;
 import org.agmip.translators.apsim.ApsimOutput;
 import org.agmip.translators.dssat.DssatControllerOutput;
 import org.agmip.translators.dssat.DssatWeatherOutput;
+import org.agmip.util.AcmoUtil;
         
 
 import org.slf4j.Logger;
@@ -58,6 +59,9 @@ public class TranslateToTask extends Task<String> {
             ExecutorService executor = Executors.newFixedThreadPool(64);
             try {
                 for (String tr : translateList) {
+                    // Generate the ACMO here (pre-generation) so we know what
+                    // we should get out of everything.
+                    AcmoUtil.writeAcmo(destDirectory+File.separator+tr.toUpperCase(), data, tr.toLowerCase());
                     if (tr.equals("DSSAT")) {
                         if (data.size() == 1 && data.containsKey("weather")) {
                             LOG.info("Running in weather only mode");
