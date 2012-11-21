@@ -12,8 +12,11 @@ import org.agmip.translators.csv.CSVInput;
 import org.agmip.translators.dssat.DssatControllerInput;
 import org.agmip.translators.agmip.AgmipInput;
 
-public class TranslateFromTask extends Task<HashMap> {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+public class TranslateFromTask extends Task<HashMap> {
+    private static final Logger LOG = LoggerFactory.getLogger(TranslateFromTask.class);
     private String file;
     private TranslatorInput translator;
 
@@ -52,6 +55,7 @@ public class TranslateFromTask extends Task<HashMap> {
         HashMap<String, Object> output = new HashMap<String, Object>();
         try {
             output = (HashMap<String, Object>) translator.readFile(file);
+            LOG.debug("Translate From Results: {}", output.toString());
             return output;
         } catch (Exception ex) {
             output.put("errors", ex.getMessage());
