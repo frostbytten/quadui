@@ -13,6 +13,8 @@
   <logger name="org.agmip.dome" level="DEBUG" />
   <logger name="org.agmip.dome.DomeFunctions" level="DEBUG" />
   <logger name="org.agmip.ui.quadui" level="DEBUG" />
+  <logger name="org.agmip.util.AcmoUtil" level="DEBUG" />
+  <logger name="org.agmip.ui.quadui.TranslateFromTask" level="DEBUG" />
 -->
   <root level="INFO">
     <appender-ref ref="FILE" />
