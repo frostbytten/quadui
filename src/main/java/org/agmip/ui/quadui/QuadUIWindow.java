@@ -55,6 +55,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private PushButton browseOutputDir = null;
     private PushButton browseFieldFile = null;
     private PushButton browseStrategyFile = null;
+    private ButtonGroup runType = null;
     private Checkbox modelApsim = null;
     private Checkbox modelDssat = null;
     private Checkbox modelJson = null;
@@ -271,6 +272,32 @@ public class QuadUIWindow extends Window implements Bindable {
                 });
             }
         });
+
+        runType.getButtonGroupListeners().add(new ButtonGroupListener() {
+            @Override
+            public void buttonAdded(ButtonGroup group, Button prev) {}
+
+            @Override
+            public void buttonRemoved(ButtonGroup group, Button prev) {}
+
+            @Override
+            public void selectionChanged(ButtonGroup group, Button prev) {
+                String current = group.getSelection().getName();
+                // For DEBUG only
+                if (current.equals("overlayNone")) {
+                    enableFieldOverlay(false);
+                    enableStrategyOverlay(false);
+                } else if (current.equals("overlayField")) {
+                    enableFieldOverlay(true);
+                    enableStrategyOverlay(false);
+
+                } else if (current.equals("overlaySeasonal")) {
+                    enableFieldOverlay(true);
+                    enableStrategyOverlay(true);
+                }
+                txtStatus.setText(current);
+            }
+        });
     }
 
     private void startTranslation() throws Exception {
@@ -428,5 +455,17 @@ public class QuadUIWindow extends Window implements Bindable {
         final PrintWriter printWriter = new PrintWriter(result);
         aThrowable.printStackTrace(printWriter);
         return result.toString();
+    }
+
+    private void enableFieldOverlay(boolean enabled) {
+            lblField.setEnabled(enabled);
+            fieldText.setEnabled(enabled);
+            browseFieldFile.setEnabled(enabled);
+    }
+
+    private void enableStrategyOverlay(boolean enabled) {
+        lblStrategy.setEnabled(enabled);
+        strategyText.setEnabled(enabled);
+        browseStrategyFile.setEnabled(enabled);
     }
 }

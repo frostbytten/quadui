@@ -55,7 +55,7 @@
                     </BoxPane>
                     <BoxPane orientation="vertical" styles="{padding: 6}">
                         <Label bxml:id="strategyLabel" text="Strategy File:" styles="{font:{bold:true}}" enabled="false"/>
-                        <BoxPane orientation="horizontal"><TextInput bxml:id="strategyFile" editable="false" enabled="false"/><PushButton bxml:id="browseStrategyButton" buttonData="Browse" enabled="false"/></BoxPane>
+                        <BoxPane orientation="horizontal"><TextInput bxml:id="strategyText" editable="false" enabled="false"/><PushButton bxml:id="browseStrategyButton" buttonData="Browse" enabled="false"/></BoxPane>
                     </BoxPane>
                     <BoxPane orientation="vertical" styles="{padding: 6}">
                         <Label text="Output Directory:" styles="{font:{bold:true}}" />
