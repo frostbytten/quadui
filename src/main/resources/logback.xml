@@ -15,6 +15,7 @@
   <logger name="org.agmip.ui.quadui" level="DEBUG" />
   <logger name="org.agmip.util.AcmoUtil" level="DEBUG" />
   <logger name="org.agmip.ui.quadui.TranslateFromTask" level="DEBUG" />
+  <logger name="org.agmip.ui.quadui.ApplyDomeTask" level="DEBUG" />
 -->
   <root level="INFO">
     <appender-ref ref="FILE" />

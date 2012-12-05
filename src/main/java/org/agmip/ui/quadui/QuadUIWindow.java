@@ -71,6 +71,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private ArrayList<String> errors = new ArrayList<String>();
     private Properties versionProperties = new Properties();
     private String quadVersion = "";
+    private String mode = "";
 
     public QuadUIWindow() {
         try {
@@ -142,6 +143,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
         outputText.setText("");
         txtVersion.setText(quadVersion);
+        mode = "none";
 
         convertButton.getButtonPressListeners().add(new ButtonPressListener() {
 
@@ -287,13 +289,16 @@ public class QuadUIWindow extends Window implements Bindable {
                 if (current.equals("overlayNone")) {
                     enableFieldOverlay(false);
                     enableStrategyOverlay(false);
+                    mode = "none";
                 } else if (current.equals("overlayField")) {
                     enableFieldOverlay(true);
                     enableStrategyOverlay(false);
+                    mode = "field";
 
                 } else if (current.equals("overlaySeasonal")) {
                     enableFieldOverlay(true);
                     enableStrategyOverlay(true);
+                    mode = "strategy";
                 }
                 txtStatus.setText(current);
             }
@@ -308,11 +313,12 @@ public class QuadUIWindow extends Window implements Bindable {
                 // Load the JSON representation into memory and send it down the line.
                 String json = new Scanner(new File(convertText.getText()), "UTF-8").useDelimiter("\\A").next();
                 HashMap data = fromJSON(json);
-                if (fieldText.getText().equals("")) {                            
+
+                if (mode.equals("none")) {                            
                     toOutput(data);
                 } else {
                     LOG.debug("Attempting to apply a new DOME");
-                    applyDome(data);
+                    applyDome(data, mode);
                 }
             } catch (Exception ex) {
                 LOG.error(getStackTrace(ex));
@@ -325,10 +331,10 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void taskExecuted(Task<HashMap> t) {
                     HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
-                        if (fieldText.getText().equals("")) {
+                        if (mode.equals("none")) {
                             toOutput(data);
                         } else {
-                            applyDome(data);
+                            applyDome(data, mode);
                         }
                     } else {
                         Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
@@ -347,9 +353,9 @@ public class QuadUIWindow extends Window implements Bindable {
         }
     }
 
-    private void applyDome(HashMap map) {
+    private void applyDome(HashMap map, String mode) {
         txtStatus.setText("Applying DOME...");
-        ApplyDomeTask task = new ApplyDomeTask(fieldText.getText(), map);
+        ApplyDomeTask task = new ApplyDomeTask(fieldText.getText(), strategyText.getText(), mode, map);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
             public void taskExecuted(Task<HashMap> t) {

@@ -25,12 +25,21 @@ public class ApplyDomeTask extends Task<HashMap> {
     private static Logger log = LoggerFactory.getLogger(ApplyDomeTask.class);
     private HashMap<String, HashMap<String, Object>> domes = new HashMap<String, HashMap<String, Object>>();
     private HashMap source;
-    private DomeInput translator = new DomeInput();
+    private String mode;
 
 
-    public ApplyDomeTask(String fileName, HashMap m) {
+    public ApplyDomeTask(String fieldFile, String strategyFile, String mode, HashMap m) {
         this.source = m;
+        this.mode = mode;
         // Setup the domes here.
+
+        if (mode.equals("strategy")) {
+            loadDomeFile(strategyFile);
+        }
+        loadDomeFile(fieldFile);
+    }
+
+    private void loadDomeFile(String fileName) {
         String fileNameTest = fileName.toUpperCase();
 
         log.debug("Loading DOME file: {}", fileName);
@@ -47,8 +56,10 @@ public class ApplyDomeTask extends Task<HashMap> {
                     File zipFileName = new File(entry.getName());
                     if (zipFileName.getName().toLowerCase().endsWith(".csv") && ! zipFileName.getName().startsWith(".")) {
                         log.debug("Processing file: {}", zipFileName.getName());
+                        DomeInput translator = new DomeInput();
                         translator.readCSV(z.getInputStream(entry));
                         HashMap<String, Object> dome = translator.getDome();
+                        log.debug("dome info: {}", dome.toString());
                         String domeName = DomeUtil.generateDomeName(dome);
                         if (! domeName.equals("----")) {
                             domes.put(domeName, new HashMap<String, Object>(dome));
@@ -64,8 +75,12 @@ public class ApplyDomeTask extends Task<HashMap> {
         } else if (fileNameTest.endsWith(".CSV")) {
             log.debug("Entering single file DOME handling");
             try {
+                DomeInput translator = new DomeInput();
                 HashMap<String, Object> dome = (HashMap<String, Object>) translator.readFile(fileName);
                 String domeName = DomeUtil.generateDomeName(dome);
+                log.debug("Dome name: {}", domeName);
+                log.debug("Dome layout: {}", dome.toString());
+
                 domes.put(domeName, dome);
             } catch (Exception ex) {
                 log.error("Error processing DOME file: {}", ex.getMessage());
@@ -97,12 +112,41 @@ public class ApplyDomeTask extends Task<HashMap> {
         }
         
         // Flatten the data and apply the dome.
-
+        Engine domeEngine;
         ArrayList<HashMap<String, Object>> flattenedData = MapUtil.flatPack(source);
-        for (HashMap<String, Object> entry : flattenedData) {
-            Engine domeEngine;
 
-            String domeName = MapUtil.getValueOr(entry, "dome_name", "");
+        if (mode.equals("strategy")) {
+            log.debug("Domes: {}", domes.toString());
+            log.debug("Entering Strategy mode!");
+            Engine generatorEngine;
+            ArrayList<HashMap<String, Object>> strategyResults = new ArrayList<HashMap<String, Object>>();
+            for (HashMap<String, Object> entry : flattenedData) {
+                String strategyName = MapUtil.getValueOr(entry, "seasonal_strategy", "");
+                log.debug("Looking for ss: {}", strategyName);
+                if (! strategyName.equals("")) {
+                    if (domes.containsKey(strategyName)) {
+                        log.debug("Found strategyName");
+                        generatorEngine = new Engine(domes.get(strategyName), true);
+                        generatorEngine.apply(entry);
+                        ArrayList<HashMap<String, Object>> newEntries = generatorEngine.runGenerators(entry);
+                        log.debug("New Entries to add: {}", newEntries.size());
+                        strategyResults.addAll(newEntries);
+                    } else {
+                        log.error("Cannot find strategy: {}", strategyName);
+                    }
+                }
+            }
+            log.debug("=== FINISHED GENERATION ===");
+            log.debug("Generated count: {}", strategyResults.size());
+            ArrayList<HashMap<String, Object>> exp = MapUtil.getRawPackageContents(source, "experiments");
+            exp.clear();
+            exp.addAll(strategyResults);
+            flattenedData = MapUtil.flatPack(source);
+        }
+
+        for (HashMap<String, Object> entry : flattenedData) {
+
+            String domeName = MapUtil.getValueOr(entry, "field_overlay", "");
             if (! domeName.equals("")) {
                 String tmp[] = domeName.split("[|]");
                 int tmpLength = tmp.length;
