@@ -43,7 +43,7 @@
                             <bxml:define>
                                 <ButtonGroup bxml:id="runTypeButtons"/>
                             </bxml:define>
-                            <RadioButton bxml:id="overlayNone" buttonData="None" buttonGroup="$runTypeButtons" selected="true"/>
+                            <RadioButton bxml:id="overlayNone" buttonData="Raw Data Only" buttonGroup="$runTypeButtons" selected="true"/>
                             <RadioButton bxml:id="overlayField" buttonData="Field Overlay" buttonGroup="$runTypeButtons"/>
                             <RadioButton bxml:id="overlaySeasonal" buttonData="Seasonal Strategy" buttonGroup="$runTypeButtons"/>
                             <!-- RadioButton bxml:id="overlayRotation" buttonData="Rotation Strategy" buttonGroup="$runTypeButtons"/> -->
