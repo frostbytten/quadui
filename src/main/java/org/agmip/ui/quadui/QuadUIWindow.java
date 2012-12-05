@@ -300,7 +300,6 @@ public class QuadUIWindow extends Window implements Bindable {
                     enableStrategyOverlay(true);
                     mode = "strategy";
                 }
-                txtStatus.setText(current);
             }
         });
     }
