@@ -37,13 +37,29 @@
                         <Label text="File To Convert:" styles="{font:{bold:true}}" />
                         <BoxPane orientation="horizontal"><TextInput bxml:id="convertText" editable="false"/><PushButton bxml:id="browseConvertButton" buttonData="Browse"/></BoxPane>
                     </BoxPane>
+                    <BoxPane orientation="vertical" styles="{padding:{left: 6}}">
+                        <Label text="Run Type:" styles="{font:{bold:true}}" />
+                        <BoxPane orientation="horizontal">
+                            <bxml:define>
+                                <ButtonGroup bxml:id="runTypeButtons"/>
+                            </bxml:define>
+                            <RadioButton bxml:id="overlayNone" buttonData="Raw Data Only" buttonGroup="$runTypeButtons" selected="true"/>
+                            <RadioButton bxml:id="overlayField" buttonData="Field Overlay" buttonGroup="$runTypeButtons"/>
+                            <RadioButton bxml:id="overlaySeasonal" buttonData="Seasonal Strategy" buttonGroup="$runTypeButtons"/>
+                            <!-- RadioButton bxml:id="overlayRotation" buttonData="Rotation Strategy" buttonGroup="$runTypeButtons"/> -->
+                        </BoxPane>
+                    </BoxPane>
+                    <BoxPane orientation="vertical" styles="{padding: 6}">
+                        <Label bxml:id="fieldLabel" text="Field Overlay File:" styles="{font:{bold:true}}" enabled="false"/>
+                        <BoxPane orientation="horizontal"><TextInput bxml:id="fieldText" editable="false" enabled="false"/><PushButton bxml:id="browseFieldButton" buttonData="Browse" enabled="false"/></BoxPane>
+                    </BoxPane>
+                    <BoxPane orientation="vertical" styles="{padding: 6}">
+                        <Label bxml:id="strategyLabel" text="Strategy File:" styles="{font:{bold:true}}" enabled="false"/>
+                        <BoxPane orientation="horizontal"><TextInput bxml:id="strategyText" editable="false" enabled="false"/><PushButton bxml:id="browseStrategyButton" buttonData="Browse" enabled="false"/></BoxPane>
+                    </BoxPane>
                     <BoxPane orientation="vertical" styles="{padding: 6}">
                         <Label text="Output Directory:" styles="{font:{bold:true}}" />
                         <BoxPane orientation="horizontal"><TextInput bxml:id="outputText" editable="false"/><PushButton bxml:id="browseOutputButton" buttonData="Browse"/></BoxPane>
-                    </BoxPane>
-                    <BoxPane orientation="vertical" styles="{padding: 6}">
-                        <Label text="DOME File (optional):" styles="{font:{bold:true}}" />
-                        <BoxPane orientation="horizontal"><TextInput bxml:id="domeText" editable="false"/><PushButton bxml:id="browseDomeButton" buttonData="Browse"/><PushButton bxml:id="removeDomeButton" buttonData="Clear DOME" /></BoxPane>
                     </BoxPane>
                     <BoxPane orientation="vertical" styles="{padding:6}">
                         <Border title="Output to:" styles="{padding:6}">

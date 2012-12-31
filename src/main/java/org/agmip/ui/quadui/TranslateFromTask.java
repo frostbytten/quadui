@@ -47,6 +47,11 @@ public class TranslateFromTask extends Task<HashMap> {
             f.close();
         } else if (file.toLowerCase().endsWith(".agmip")) {
             translator = new AgmipInput();
+        } else if (file.toLowerCase().endsWith(".csv")) {
+            translator = new CSVInput();
+        } else { 
+            LOG.error("Unsupported file: {}", file);
+            throw new Exception("Unsupported file type");
         }
     }
 
