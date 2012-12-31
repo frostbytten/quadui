@@ -4,7 +4,7 @@
 
 	<groupId>org.agmip.ui</groupId>
 	<artifactId>quadui</artifactId>
-	<version>1.2-SNAPSHOT</version>
+	<version>1.1d</version>
 	<packaging>jar</packaging>
 
 	<name>quadui</name>
@@ -19,7 +19,7 @@
 		<dependency>
 			<groupId>org.agmip</groupId>
 			<artifactId>agmip-core</artifactId>
-			<version>0.16-SNAPSHOT</version>
+			<version>0.15.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.pivot</groupId>
@@ -50,12 +50,12 @@
 		<dependency>
 			<groupId>org.agmip.translators</groupId>
 			<artifactId>translator-generic-csv</artifactId>
-			<version>1.1-SNAPSHOT</version>
+			<version>1.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.agmip.translators</groupId>
 			<artifactId>translator-dssat</artifactId>
-			<version>1.2.1-SNAPSHOT</version>
+			<version>1.2.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.agmip.translators</groupId>
@@ -70,12 +70,12 @@
 		<dependency>
 			<groupId>org.agmip</groupId>
 			<artifactId>dome</artifactId>
-			<version>1.1-SNAPSHOT</version>
+			<version>1.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.agmip</groupId>
 			<artifactId>ace-lookup</artifactId>
-			<version>1.0.1-SNAPSHOT</version>
+			<version>1.0.1</version>
 		</dependency>
 	</dependencies>
 	<build>
