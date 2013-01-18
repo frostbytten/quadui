@@ -14,7 +14,7 @@ public class QuadUIApp extends Application.Adapter {
 
     @Override
     public void startup(Display display, Map<String, String> props) throws Exception {
-        LOG.info("Run GUI start");
+        LOG.info("GUI start");
         BXMLSerializer bxml = new BXMLSerializer();
         window = (QuadUIWindow) bxml.readObject(getClass().getResource("/quadui.bxml"));
         window.open(display);
@@ -24,6 +24,7 @@ public class QuadUIApp extends Application.Adapter {
     public boolean shutdown(boolean opt) {
         if (window != null) {
             window.close();
+            LOG.info("GUI end");
         }
         return false;
     }
@@ -37,12 +38,12 @@ public class QuadUIApp extends Application.Adapter {
             }
         }
         if (cmdFlg) {
-            LOG.info("Run CLI");
+            LOG.info("CLI Mode");
             QuadCmdLine cmd = new QuadCmdLine();
             cmd.run(args);
             
         } else {
-            LOG.info("Run GUI");
+            LOG.info("GUI Mode");
             DesktopApplicationContext.main(QuadUIApp.class, args);
         }
     }
