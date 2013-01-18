@@ -168,11 +168,7 @@ public class QuadCmdLine {
             if (isFile) {
                 return f.isFile();
             } else {
-                if (!path.matches(".*\\.\\w+$")) {
-                    return f.isDirectory();
-                } else {
-                    return false;
-                }
+                return !path.matches(".*\\.\\w+$");
             }
         }
     }
@@ -330,7 +326,7 @@ public class QuadCmdLine {
     }
 
     private void argsInfo() {
-        LOG.info("Dome mode:\t" + mode);
+        LOG.info("Dome mode: \t" + mode);
         LOG.info("convertPath:\t" + convertPath);
         LOG.info("fieldPath: \t" + fieldPath);
         LOG.info("strategyPath:\t" + strategyPath);
