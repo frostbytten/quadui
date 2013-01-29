@@ -25,6 +25,19 @@ public class QuadUIApp extends Application.Adapter {
     }
 
     public static void main(String[] args) {
-        DesktopApplicationContext.main(QuadUIApp.class, args);
+        boolean cmdFlg = false;
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equalsIgnoreCase("-cli")) {
+                cmdFlg = true;
+                break;
+            }
+        }
+        if (cmdFlg) {
+            QuadCmdLine cmd = new QuadCmdLine();
+            cmd.run(args);
+            
+        } else {
+            DesktopApplicationContext.main(QuadUIApp.class, args);
+        }
     }
 }

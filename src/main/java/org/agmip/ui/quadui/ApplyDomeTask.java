@@ -151,9 +151,10 @@ public class ApplyDomeTask extends Task<HashMap> {
                 String tmp[] = domeName.split("[|]");
                 int tmpLength = tmp.length;
                 for (int i=0; i < tmpLength; i++) {
-                    log.debug("Looping for dome_name: {}", tmp[i]);
-                    if (domes.containsKey(tmp[i])) {
-                        domeEngine = new Engine(domes.get(tmp[i]));
+                    String tmpDomeId = tmp[i].toUpperCase();
+                    log.debug("Looping for dome_name: {}", tmpDomeId);
+                    if (domes.containsKey(tmpDomeId)) {
+                        domeEngine = new Engine(domes.get(tmpDomeId));
                         domeEngine.apply(entry);
                     }
                 }
