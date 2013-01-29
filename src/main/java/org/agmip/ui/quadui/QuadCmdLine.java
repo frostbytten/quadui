@@ -299,8 +299,7 @@ public class QuadCmdLine {
 
     private void printHelp() {
         if (helpFlg) {
-            System.out.println("***********************************************************************************************************************");
-            System.out.println(" The arguments format : <dome_mode_option><model_option><convert_path><field_path><strategy_path><output_path>");
+            System.out.println("\nThe arguments format : <dome_mode_option> <model_option> <convert_path> <field_path> <strategy_path> <output_path>");
             System.out.println("\t<dome_mode_option>");
             System.out.println("\t\t-n | -none\tRaw Data Only, Default");
             System.out.println("\t\t-f | -filed\tField Overlay, will require Field Overlay File");
@@ -319,7 +318,7 @@ public class QuadCmdLine {
             System.out.println("\t<output_path>");
             System.out.println("\t\tThe path for output.");
             System.out.println("\t\t* If not provided, will use convert_path");
-            System.out.println("***********************************************************************************************************************");
+            System.out.println("\n");
         } else {
             LOG.info("Type -h or -help for arguments info");
         }
