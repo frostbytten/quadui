@@ -4,7 +4,7 @@
 
 	<groupId>org.agmip.ui</groupId>
 	<artifactId>quadui</artifactId>
-  <version>1.1e</version>
+  <version>1.1f-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>quadui</name>
