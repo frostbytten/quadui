@@ -62,46 +62,11 @@ public class TranslateToTask extends Task<String> {
                     // Generate the ACMO here (pre-generation) so we know what
                     // we should get out of everything.
                     AcmoUtil.writeAcmo(destDirectory+File.separator+tr.toUpperCase(), data, tr.toLowerCase());
-                    if (tr.equals("DSSAT")) {
-                        if (data.size() == 1 && data.containsKey("weather")) {
-                            LOG.info("Running in weather only mode");
-                            submitTask(executor,tr,data,true);
-                        } else {
-                            submitTask(executor, tr, data, false);
-                        }
+                    if (data.size() == 1 && data.containsKey("weather")) {
+                        LOG.info("Running in weather only mode");
+                        submitTask(executor,tr,data,true);
                     } else {
-                        // Handle translators that do not support the multi-experiment
-                        // format.
-                        if (data.containsKey("experiments")) {
-                            for (HashMap<String, Object> experiment : (ArrayList<HashMap>) data.get("experiments")) {
-                                HashMap<String, Object> temp = new HashMap<String, Object>(experiment);
-                                int wKey, sKey;
-                                if (temp.containsKey("wst_id")) {
-                                    if ((wKey = weatherList.indexOf((String) temp.get("wst_id"))) != -1) {
-                                        temp.put("weather", ((ArrayList<HashMap<String, Object>>) data.get("weathers")).get(wKey));
-                                    }
-                                }
-                                if (temp.containsKey("soil_id")) {
-                                    if ((sKey = soilList.indexOf((String) temp.get("soil_id"))) != -1) {
-                                        temp.put("soil", ((ArrayList<HashMap<String, Object>>) data.get("soils")).get(sKey));
-                                    }
-                                }
-                                LOG.debug("JSON of temp:"+toJSON(temp));
-                                // need to re-implement properly for threading apsim
-                                //submitTask(executor, tr, temp);
-                                if(tr.equals("APSIM")) {
-                                    ApsimOutput translator = new ApsimOutput();
-                                    translator.writeFile(destDirectory+File.separator+"APSIM", temp);
-                                }
-                            }
-                        } else {
-                            boolean wthOnly = false;
-                            if ( data.size() == 1 && data.containsKey("weather") ) {
-                                wthOnly = true;
-                            }
-                            //Assume this is a single complete experiment
-                            submitTask(executor, tr, data, wthOnly);
-                        }
+                        submitTask(executor, tr, data, false);
                     }
                 }
                 executor.shutdown();
