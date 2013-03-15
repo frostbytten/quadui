@@ -75,18 +75,23 @@ public class QuadUIWindow extends Window implements Bindable {
 
     public QuadUIWindow() {
         try {
-            InputStream versionFile = getClass().getClassLoader().getResourceAsStream("git.properties");
+            InputStream versionFile = getClass().getClassLoader().getResourceAsStream("product.properties");
             versionProperties.load(versionFile);
             versionFile.close();
             StringBuilder qv = new StringBuilder();
+            String buildType = versionProperties.getProperty("product.buildtype").toString();
             qv.append("Version ");
-            qv.append(versionProperties.getProperty("git.commit.id.describe").toString());
-            qv.append("("+versionProperties.getProperty("git.branch").toString()+")");
+            qv.append(versionProperties.getProperty("product.version").toString());
+            qv.append("-"+versionProperties.getProperty("product.buildversion").toString());
+            qv.append("("+buildType+")");
+            if (buildType.equals("dev")) {
+                qv.append(" ["+versionProperties.getProperty("product.buildts")+"]");
+            }
             quadVersion = qv.toString();
         } catch (IOException ex) {
             LOG.error("Unable to load version information, version will be blank.");
         }
-        
+
         Action.getNamedActions().put("fileQuit", new Action() {
             @Override
             public void perform(Component src) {
@@ -162,7 +167,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     startTranslation();
                 } catch(Exception ex) {
                     LOG.error(getStackTrace(ex));
-                    
+
                 }
             }
         });
@@ -313,7 +318,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 String json = new Scanner(new File(convertText.getText()), "UTF-8").useDelimiter("\\A").next();
                 HashMap data = fromJSON(json);
 
-                if (mode.equals("none")) {                            
+                if (mode.equals("none")) {
                     toOutput(data);
                 } else {
                     LOG.debug("Attempting to apply a new DOME");

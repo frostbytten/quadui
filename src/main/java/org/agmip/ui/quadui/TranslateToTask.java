@@ -14,8 +14,7 @@ import org.apache.pivot.util.concurrent.TaskExecutionException;
 import org.agmip.translators.apsim.ApsimOutput;
 import org.agmip.translators.dssat.DssatControllerOutput;
 import org.agmip.translators.dssat.DssatWeatherOutput;
-import org.agmip.util.AcmoUtil;
-        
+import org.agmip.acmo.util.AcmoUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
