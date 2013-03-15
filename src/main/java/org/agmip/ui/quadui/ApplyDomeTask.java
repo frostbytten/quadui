@@ -104,13 +104,13 @@ public class ApplyDomeTask extends Task<HashMap> {
         // Load the dome
 
         if (domes.isEmpty()) {
-            log.error("No DOME to apply.");
+            log.info("No DOME to apply.");
             HashMap<String, Object> d = new HashMap<String, Object>();
             //d.put("domeinfo", new HashMap<String, String>());
             d.put("domeoutput", source);
             return d;
         }
-        
+
         // Flatten the data and apply the dome.
         Engine domeEngine;
         ArrayList<HashMap<String, Object>> flattenedData = MapUtil.flatPack(source);
@@ -126,6 +126,8 @@ public class ApplyDomeTask extends Task<HashMap> {
                 if (! strategyName.equals("")) {
                     if (domes.containsKey(strategyName)) {
                         log.debug("Found strategyName");
+                        entry.put("dome_applied", "Y");
+                        entry.put("seasonal_dome_applied", "Y");
                         generatorEngine = new Engine(domes.get(strategyName), true);
                         generatorEngine.apply(entry);
                         ArrayList<HashMap<String, Object>> newEntries = generatorEngine.runGenerators(entry);
@@ -152,9 +154,11 @@ public class ApplyDomeTask extends Task<HashMap> {
                 int tmpLength = tmp.length;
                 for (int i=0; i < tmpLength; i++) {
                     String tmpDomeId = tmp[i].toUpperCase();
-                    log.debug("Looping for dome_name: {}", tmpDomeId);
+                    log.debug("Looking for dome_name: {}", tmpDomeId);
                     if (domes.containsKey(tmpDomeId)) {
                         domeEngine = new Engine(domes.get(tmpDomeId));
+                        entry.put("dome_applied", "Y");
+                        entry.put("field_dome_applied", "Y");
                         domeEngine.apply(entry);
                     }
                 }
