@@ -279,7 +279,7 @@ public class QuadCmdLine {
                 };
                 task.execute(new TaskAdapter<String>(listener));
             }
-            TranslateToTask task = new TranslateToTask(models, map, outputPath);
+            TranslateToTask task = new TranslateToTask(models, map, outputPath, true);
             TaskListener<String> listener = new TaskListener<String>() {
                 @Override
                 public void executeFailed(Task<String> arg0) {

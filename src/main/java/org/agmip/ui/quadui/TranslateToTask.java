@@ -16,6 +16,8 @@ import org.agmip.translators.dssat.DssatControllerOutput;
 import org.agmip.translators.dssat.DssatWeatherOutput;
 import org.agmip.acmo.util.AcmoUtil;
 
+// import com.google.common.io.Files;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,14 +29,16 @@ public class TranslateToTask extends Task<String> {
     private ArrayList<String> translateList;
     private ArrayList<String> weatherList, soilList;
     private String destDirectory;
+    private boolean compress;
     private static Logger LOG = LoggerFactory.getLogger(TranslateToTask.class);
 
-    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory) {
+    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress) {
         this.data = data;
         this.destDirectory = destDirectory;
         this.translateList = new ArrayList<String>();
         this.weatherList = new ArrayList<String>();
         this.soilList = new ArrayList<String>();
+        this.compress = compress;
         for (String trType : translateList) {
             if (!trType.equals("JSON")) {
                 this.translateList.add(trType);
@@ -60,12 +64,13 @@ public class TranslateToTask extends Task<String> {
                 for (String tr : translateList) {
                     // Generate the ACMO here (pre-generation) so we know what
                     // we should get out of everything.
-                    AcmoUtil.writeAcmo(destDirectory+File.separator+tr.toUpperCase(), data, tr.toLowerCase());
+                    File destDir = createModelDestDirectory(destDirectory, tr);
+                    AcmoUtil.writeAcmo(destDir.toString(), data, tr.toLowerCase());
                     if (data.size() == 1 && data.containsKey("weather")) {
                         LOG.info("Running in weather only mode");
-                        submitTask(executor,tr,data,true);
+                        submitTask(executor, tr, data, destDir, true, compress);
                     } else {
-                        submitTask(executor, tr, data, false);
+                        submitTask(executor, tr, data, destDir, false, compress);
                     }
                 }
                 executor.shutdown();
@@ -87,9 +92,8 @@ public class TranslateToTask extends Task<String> {
      *                proper <code>TranslatorOutput</code> 
      * @param data The data to translate
      */
-    private void submitTask(ExecutorService executor, String trType, HashMap<String, Object> data, boolean wthOnly) {
+    private void submitTask(ExecutorService executor, String trType, HashMap<String, Object> data, File path, boolean wthOnly, boolean compress) {
         TranslatorOutput translator = null;
-        String destination = "";
         if (trType.equals("DSSAT")) {
             if (wthOnly) {
                 translator = new DssatWeatherOutput();
@@ -99,9 +103,21 @@ public class TranslateToTask extends Task<String> {
         } else if (trType.equals("APSIM")) {
             translator = new ApsimOutput();
         }
-        destination = destDirectory + File.separator + trType;
         LOG.debug("Translating with :"+translator.getClass().getName());
-        Runnable thread = new TranslateRunner(translator, data, destination);
+        Runnable thread = new TranslateRunner(translator, data, path.toString(), trType, compress);
         executor.execute(thread);
+    }
+
+    private static File createModelDestDirectory(String basePath, String model) {
+        model = model.toUpperCase();
+        File originalDestDir = new File(basePath+File.separator+model);
+        File destDirectory = originalDestDir;
+        int i=0;
+        while (destDirectory.exists()) {
+            i++;
+            destDirectory = new File(originalDestDir.toString()+"-"+i);
+        }
+        destDirectory.mkdirs();
+        return destDirectory;
     }
 }

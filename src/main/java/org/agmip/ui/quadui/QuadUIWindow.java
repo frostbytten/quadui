@@ -59,6 +59,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox modelApsim = null;
     private Checkbox modelDssat = null;
     private Checkbox modelJson = null;
+    private Checkbox optionCompress = null;
     private Label txtStatus = null;
     private Label txtVersion = null;
     private Label lblField = null;
@@ -141,6 +142,7 @@ public class QuadUIWindow extends Window implements Bindable {
         modelApsim          = (Checkbox) ns.get("model-apsim");
         modelDssat          = (Checkbox) ns.get("model-dssat");
         modelJson           = (Checkbox) ns.get("model-json");
+        optionCompress      = (Checkbox) ns.get("option-compress");
 
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
@@ -436,7 +438,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 };
                 task.execute(new TaskAdapter<String>(listener));
             }
-            TranslateToTask task = new TranslateToTask(models, map, outputText.getText());
+            TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected());
             TaskListener<String> listener = new TaskListener<String>() {
 
                 @Override
