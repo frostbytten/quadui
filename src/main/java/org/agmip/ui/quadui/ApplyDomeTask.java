@@ -184,8 +184,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                         entry.put("dome_applied", "Y");
                         entry.put("seasonal_dome_applied", "Y");
                         generatorEngine = new Engine(domes.get(strategyName), true);
-                        generatorEngine.apply(entry);
-                        ArrayList<HashMap<String, Object>> newEntries = generatorEngine.runGenerators(entry);
+                        ArrayList<HashMap<String, Object>> newEntries = generatorEngine.applyStg(entry);
                         log.debug("New Entries to add: {}", newEntries.size());
                         strategyResults.addAll(newEntries);
                     } else {
@@ -215,6 +214,10 @@ public class ApplyDomeTask extends Task<HashMap> {
                         entry.put("dome_applied", "Y");
                         entry.put("field_dome_applied", "Y");
                         domeEngine.apply(entry);
+                        ArrayList<String> strategyList = domeEngine.getGenerators();
+                        if (!strategyList.isEmpty()) {
+                            log.warn("The following DOME commands in the field overlay file are ignored : {}", strategyList.toString());
+                        }
                     } else {
                         log.error("Cannot find overlay: {}", tmpDomeId);
                     }
