@@ -1,22 +1,21 @@
 package org.agmip.ui.quadui;
 
-import java.net.URL;
 import java.io.File;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.Scanner;
-
-
+import static org.agmip.util.JSONAdapter.*;
 import org.apache.pivot.beans.Bindable;
 import org.apache.pivot.collections.Map;
-import org.apache.pivot.util.Resources;
 import org.apache.pivot.util.Filter;
+import org.apache.pivot.util.Resources;
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskListener;
 import org.apache.pivot.wtk.Action;
@@ -40,10 +39,6 @@ import org.apache.pivot.wtk.SheetCloseListener;
 import org.apache.pivot.wtk.TaskAdapter;
 import org.apache.pivot.wtk.TextInput;
 import org.apache.pivot.wtk.Window;
-
-import static org.agmip.util.JSONAdapter.*;
-import org.agmip.util.MapUtil;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,6 +48,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private PushButton convertButton = null;
     private PushButton browseToConvert = null;
     private PushButton browseOutputDir = null;
+    private PushButton browseLinkFile = null;
     private PushButton browseFieldFile = null;
     private PushButton browseStrategyFile = null;
     private ButtonGroup runType = null;
@@ -62,10 +58,12 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox optionCompress = null;
     private Label txtStatus = null;
     private Label txtVersion = null;
+    private Label lblLink = null;
     private Label lblField = null;
     private Label lblStrategy = null;
     private TextInput outputText = null;
     private TextInput convertText = null;
+    private TextInput linkText = null;
     private TextInput fieldText = null;
     private TextInput strategyText = null;
     private ArrayList<Checkbox> checkboxGroup = new ArrayList<Checkbox>();
@@ -83,10 +81,10 @@ public class QuadUIWindow extends Window implements Bindable {
             String buildType = versionProperties.getProperty("product.buildtype").toString();
             qv.append("Version ");
             qv.append(versionProperties.getProperty("product.version").toString());
-            qv.append("-"+versionProperties.getProperty("product.buildversion").toString());
-            qv.append("("+buildType+")");
+            qv.append("-").append(versionProperties.getProperty("product.buildversion").toString());
+            qv.append("(").append(buildType).append(")");
             if (buildType.equals("dev")) {
-                qv.append(" ["+versionProperties.getProperty("product.buildts")+"]");
+                qv.append(" [").append(versionProperties.getProperty("product.buildts")).append("]");
             }
             quadVersion = qv.toString();
         } catch (IOException ex) {
@@ -123,20 +121,24 @@ public class QuadUIWindow extends Window implements Bindable {
         return errors;
     }
 
+    @Override
     public void initialize(Map<String, Object> ns, URL location, Resources res) {
         convertIndicator    = (ActivityIndicator) ns.get("convertIndicator");
         convertButton       = (PushButton) ns.get("convertButton");
         browseToConvert     = (PushButton) ns.get("browseConvertButton");
         browseOutputDir     = (PushButton) ns.get("browseOutputButton");
+        browseLinkFile     = (PushButton) ns.get("browseLinkButton");
         browseFieldFile     = (PushButton) ns.get("browseFieldButton");
         browseStrategyFile  = (PushButton) ns.get("browseStrategyButton");
         runType             = (ButtonGroup) ns.get("runTypeButtons");
         txtStatus           = (Label) ns.get("txtStatus");
         txtVersion          = (Label) ns.get("txtVersion");
+        lblLink            = (Label) ns.get("linkLabel");
         lblField            = (Label) ns.get("fieldLabel");
         lblStrategy         = (Label) ns.get("strategyLabel");
         convertText         = (TextInput) ns.get("convertText");
         outputText          = (TextInput) ns.get("outputText");
+        linkText           = (TextInput) ns.get("linkText");
         fieldText           = (TextInput) ns.get("fieldText");
         strategyText        = (TextInput) ns.get("strategyText");
         modelApsim          = (Checkbox) ns.get("model-apsim");
@@ -154,9 +156,10 @@ public class QuadUIWindow extends Window implements Bindable {
 
         convertButton.getButtonPressListeners().add(new ButtonPressListener() {
 
+            @Override
             public void buttonPressed(Button button) {
                 ArrayList<String> validationErrors = validateInputs();
-                if (validationErrors.size() != 0) {
+                if (!validationErrors.isEmpty()) {
                     final BoxPane pane = new BoxPane(Orientation.VERTICAL);
                     for (String error : validationErrors) {
                         pane.add(new Label(error));
@@ -232,6 +235,31 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         });
 
+//        browseLinkFile.getButtonPressListeners().add(new ButtonPressListener() {
+//            @Override
+//            public void buttonPressed(Button button) {
+//                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+//                browse.setDisabledFileFilter(new Filter<File>() {
+//
+//                    @Override
+//                    public boolean include(File file) {
+//                        return (file.isFile()
+//                                && (!file.getName().toLowerCase().endsWith(".csv"))
+//                                && (!file.getName().toLowerCase().endsWith(".zip")));
+//                    }
+//                });
+//                browse.open(QuadUIWindow.this, new SheetCloseListener() {
+//                    @Override
+//                    public void sheetClosed(Sheet sheet) {
+//                        if (sheet.getResult()) {
+//                            File linkFile = browse.getSelectedFile();
+//                            linkText.setText(linkFile.getPath());
+//                        }
+//                    }
+//                });
+//            }
+//        });
+
         browseFieldFile.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
@@ -294,15 +322,18 @@ public class QuadUIWindow extends Window implements Bindable {
                 String current = group.getSelection().getName();
                 // For DEBUG only
                 if (current.equals("overlayNone")) {
+                    enableLinkFile(false);
                     enableFieldOverlay(false);
                     enableStrategyOverlay(false);
                     mode = "none";
                 } else if (current.equals("overlayField")) {
+                    enableLinkFile(true);
                     enableFieldOverlay(true);
                     enableStrategyOverlay(false);
                     mode = "field";
 
                 } else if (current.equals("overlaySeasonal")) {
+                    enableLinkFile(true);
                     enableFieldOverlay(true);
                     enableStrategyOverlay(true);
                     mode = "strategy";
@@ -361,6 +392,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
     private void applyDome(HashMap map, String mode) {
         txtStatus.setText("Applying DOME...");
+//        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map);
         ApplyDomeTask task = new ApplyDomeTask(fieldText.getText(), strategyText.getText(), mode, map);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
@@ -467,6 +499,12 @@ public class QuadUIWindow extends Window implements Bindable {
         final PrintWriter printWriter = new PrintWriter(result);
         aThrowable.printStackTrace(printWriter);
         return result.toString();
+    }
+
+    private void enableLinkFile(boolean enabled) {
+//            lblLink.setEnabled(enabled);
+//            linkText.setEnabled(enabled);
+//            browseLinkFile.setEnabled(enabled);
     }
 
     private void enableFieldOverlay(boolean enabled) {
