@@ -358,6 +358,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private void startTranslation() throws Exception {
         convertIndicator.setActive(true);
         txtStatus.setText("Importing data...");
+        LOG.info("Importing data...");
         if (convertText.getText().endsWith(".json")) {
             try {
                 // Load the JSON representation into memory and send it down the line.
@@ -367,7 +368,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 if (mode.equals("none")) {
                     toOutput(data);
                 } else {
-                    LOG.debug("Attempting to apply a new DOME");
+                    LOG.info("Attempting to apply a new DOME");
                     applyDome(data, mode);
                 }
             } catch (Exception ex) {
@@ -405,6 +406,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
     private void applyDome(HashMap map, String mode) {
         txtStatus.setText("Applying DOME...");
+        LOG.info("Applying DOME...");
 //        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map);
         ApplyDomeTask task = new ApplyDomeTask(fieldText.getText(), strategyText.getText(), mode, map, autoApply);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
@@ -432,6 +434,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
     private void toOutput(HashMap map) {
         txtStatus.setText("Generating model input files...");
+        LOG.info("Generating model input files...");
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {
             models.add("JSON");

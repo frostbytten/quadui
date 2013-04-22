@@ -93,7 +93,7 @@ public class ApplyDomeTask extends Task<HashMap> {
     private void loadDomeFile(String fileName, HashMap<String, HashMap<String, Object>> domes) {
         String fileNameTest = fileName.toUpperCase();
 
-        log.debug("Loading DOME file: {}", fileName);
+        log.info("Loading DOME file: {}", fileName);
 
         if (fileNameTest.endsWith(".ZIP")) {
             log.debug("Entering Zip file handling");

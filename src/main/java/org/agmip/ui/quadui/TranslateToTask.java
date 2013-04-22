@@ -97,13 +97,17 @@ public class TranslateToTask extends Task<String> {
         TranslatorOutput translator = null;
         if (trType.equals("DSSAT")) {
             if (wthOnly) {
+                LOG.info("DSSAT Weather Translator Started");
                 translator = new DssatWeatherOutput();
             } else { 
+                LOG.info("DSSAT Translator Started");
                 translator = new DssatControllerOutput();
             }
         } else if (trType.equals("APSIM")) {
+            LOG.info("APSIM Translator Started");
             translator = new ApsimOutput();
         } else if (trType.equals("STICS")) {
+            LOG.info("STICS Translator Started");
             translator = new SticsOutput();
         }
         LOG.debug("Translating with :"+translator.getClass().getName());
