@@ -8,9 +8,13 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipException;
+import java.util.zip.ZipFile;
 import static org.agmip.util.JSONAdapter.*;
 import org.apache.pivot.beans.Bindable;
 import org.apache.pivot.collections.Map;
@@ -58,6 +62,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox modelJson = null;
     private Checkbox optionCompress = null;
     private Label txtStatus = null;
+    private Label txtAutoDomeApplyMsg = null;
     private Label txtVersion = null;
     private Label lblLink = null;
     private Label lblField = null;
@@ -72,6 +77,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Properties versionProperties = new Properties();
     private String quadVersion = "";
     private String mode = "";
+    private boolean autoApply = false;
 
     public QuadUIWindow() {
         try {
@@ -133,6 +139,7 @@ public class QuadUIWindow extends Window implements Bindable {
         browseStrategyFile  = (PushButton) ns.get("browseStrategyButton");
         runType             = (ButtonGroup) ns.get("runTypeButtons");
         txtStatus           = (Label) ns.get("txtStatus");
+        txtAutoDomeApplyMsg = (Label) ns.get("txtAutoDomeApplyMsg");
         txtVersion          = (Label) ns.get("txtVersion");
         lblLink            = (Label) ns.get("linkLabel");
         lblField            = (Label) ns.get("fieldLabel");
@@ -209,9 +216,11 @@ public class QuadUIWindow extends Window implements Bindable {
                             convertText.setText(convertFile.getPath());
                             if (outputText.getText().contains("")) {
                                 try {
-                                    outputText.setText(convertFile.getCanonicalFile().getParent()); 
-                                } catch (IOException ex) {}
+                                    outputText.setText(convertFile.getCanonicalFile().getParent());
+                                } catch (IOException ex) {
+                                }
                             }
+                            SetAutoDomeApplyMsg();
                         }
                     }
                 });
@@ -397,7 +406,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private void applyDome(HashMap map, String mode) {
         txtStatus.setText("Applying DOME...");
 //        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map);
-        ApplyDomeTask task = new ApplyDomeTask(fieldText.getText(), strategyText.getText(), mode, map);
+        ApplyDomeTask task = new ApplyDomeTask(fieldText.getText(), strategyText.getText(), mode, map, autoApply);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
             public void taskExecuted(Task<HashMap> t) {
@@ -406,16 +415,16 @@ public class QuadUIWindow extends Window implements Bindable {
                     //LOG.error("Domeoutput: {}", data.get("domeoutput"));
                     toOutput((HashMap) data.get("domeoutput"));
                 } else {
-                    Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);  
+                    Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
                 }
             }
 
             @Override
             public void executeFailed(Task<HashMap> arg0) {
                 Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
-                    LOG.error(getStackTrace(arg0.getFault()));
-                    convertIndicator.setActive(false);
-                    convertButton.setEnabled(true);
+                LOG.error(getStackTrace(arg0.getFault()));
+                convertIndicator.setActive(false);
+                convertButton.setEnabled(true);
             }
         };
         task.execute(new TaskAdapter<HashMap>(listener));
@@ -515,14 +524,40 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void enableFieldOverlay(boolean enabled) {
-            lblField.setEnabled(enabled);
-            fieldText.setEnabled(enabled);
-            browseFieldFile.setEnabled(enabled);
+        lblField.setEnabled(enabled);
+        fieldText.setEnabled(enabled);
+        browseFieldFile.setEnabled(enabled);
     }
 
     private void enableStrategyOverlay(boolean enabled) {
         lblStrategy.setEnabled(enabled);
         strategyText.setEnabled(enabled);
         browseStrategyFile.setEnabled(enabled);
+    }
+
+    private void SetAutoDomeApplyMsg() {
+        File convertFile = new File(convertText.getText());
+        String fileName = convertFile.getName().toLowerCase();
+        String msg = "";
+        autoApply = false;
+        if (fileName.endsWith(".zip")) {
+            try {
+                ZipFile zf = new ZipFile(convertFile);
+                Enumeration<? extends ZipEntry> e = zf.entries();
+                while (e.hasMoreElements()) {
+                    ZipEntry ze = (ZipEntry) e.nextElement();
+                    String zeName = ze.getName().toLowerCase();
+                    if (!zeName.endsWith(".csv")) {
+                        msg = "Selected DOME will be Auto applied";
+                        autoApply = true;
+                        break;
+                    }
+                }
+                zf.close();
+            } catch (IOException ex) {
+            }
+
+        }
+        txtAutoDomeApplyMsg.setText(msg);
     }
 }

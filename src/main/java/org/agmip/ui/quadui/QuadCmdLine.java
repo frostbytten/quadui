@@ -6,8 +6,11 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Scanner;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import static org.agmip.util.JSONAdapter.*;
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskListener;
@@ -239,7 +242,7 @@ public class QuadCmdLine {
     private void applyDome(HashMap map, String mode) {
         LOG.info("Applying DOME...");
 //        ApplyDomeTask task = new ApplyDomeTask(linkPath, fieldPath, strategyPath, mode, map);
-        ApplyDomeTask task = new ApplyDomeTask(fieldPath, strategyPath, mode, map);
+        ApplyDomeTask task = new ApplyDomeTask(fieldPath, strategyPath, mode, map, isAutoDomeApply());
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
             public void taskExecuted(Task<HashMap> t) {
@@ -362,5 +365,29 @@ public class QuadCmdLine {
         final PrintWriter printWriter = new PrintWriter(result);
         aThrowable.printStackTrace(printWriter);
         return result.toString();
+    }
+    
+    private boolean isAutoDomeApply() {
+        File convertFile = new File(convertPath);
+        String fileName = convertFile.getName().toLowerCase();
+        boolean autoApply = false;
+        if (fileName.endsWith(".zip")) {
+            try {
+                ZipFile zf = new ZipFile(convertFile);
+                Enumeration<? extends ZipEntry> e = zf.entries();
+                while (e.hasMoreElements()) {
+                    ZipEntry ze = (ZipEntry) e.nextElement();
+                    String zeName = ze.getName().toLowerCase();
+                    if (!zeName.endsWith(".csv")) {
+                        autoApply = true;
+                        break;
+                    }
+                }
+                zf.close();
+            } catch (IOException ex) {
+            }
+
+        }
+        return autoApply;
     }
 }

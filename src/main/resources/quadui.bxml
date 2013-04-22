@@ -91,6 +91,7 @@
         <BoxPane orientation="horizontal" styles="{padding:6}">
           <PushButton bxml:id="convertButton" buttonData="Convert" styles="{padding:{left:16,right:16}}"/>
           <ActivityIndicator bxml:id="convertIndicator" preferredWidth="16" preferredHeight="16" styles="{color:'#777777'}"/>
+          <Label bxml:id="txtAutoDomeApplyMsg" styles="{font:{bold:true}, color:'#FF0000'}"/>
         </BoxPane>
         <BoxPane orientation="vertical" styles="{padding:6}">
           <BoxPane orientation="horizontal">
