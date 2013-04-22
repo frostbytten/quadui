@@ -49,6 +49,12 @@
               <!-- RadioButton bxml:id="overlayRotation" buttonData="Rotation Strategy" buttonGroup="$runTypeButtons"/> -->
           </BoxPane>
         </BoxPane>
+<!--
+        <BoxPane orientation="vertical" styles="{padding: 6}">
+          <Label bxml:id="linkLabel" text="DOME Link File:" styles="{font:{bold:true}}" enabled="false"/>
+          <BoxPane orientation="horizontal"><TextInput bxml:id="linkText" editable="false" enabled="false"/><PushButton bxml:id="browseLinkButton" buttonData="Browse" enabled="false"/></BoxPane>
+        </BoxPane>
+-->
         <BoxPane orientation="vertical" styles="{padding: 6}">
           <Label bxml:id="fieldLabel" text="Field Overlay File:" styles="{font:{bold:true}}" enabled="false"/>
           <BoxPane orientation="horizontal"><TextInput bxml:id="fieldText" editable="false" enabled="false"/><PushButton bxml:id="browseFieldButton" buttonData="Browse" enabled="false"/></BoxPane>
@@ -69,6 +75,7 @@
                 </bxml:define>
                 <Checkbox bxml:id="model-dssat" buttonData="DSSAT"/>
                 <Checkbox bxml:id="model-apsim" buttonData="APSIM"/>
+                <Checkbox bxml:id="model-stics"  buttonData="STICS" />
                 <Checkbox bxml:id="model-json"  buttonData="JSON" />
               </BoxPane>
             </Border>
@@ -84,6 +91,7 @@
         <BoxPane orientation="horizontal" styles="{padding:6}">
           <PushButton bxml:id="convertButton" buttonData="Convert" styles="{padding:{left:16,right:16}}"/>
           <ActivityIndicator bxml:id="convertIndicator" preferredWidth="16" preferredHeight="16" styles="{color:'#777777'}"/>
+          <Label bxml:id="txtAutoDomeApplyMsg" styles="{font:{bold:true}, color:'#FF0000'}"/>
         </BoxPane>
         <BoxPane orientation="vertical" styles="{padding:6}">
           <BoxPane orientation="horizontal">
