@@ -166,11 +166,11 @@ public class ApplyDomeTask extends Task<HashMap> {
             HashMap<String, Object> d = new HashMap<String, Object>();
             if (ovlDomes.size() > 1) {
                 log.error("Auto-Apply feature only allows one field overlay file per run");
-                d.put("erros", "Auto-Apply feature only allows one field overlay file per run");
+                d.put("errors", "Auto-Apply feature only allows one field overlay file per run");
                 return d;
             } else if (stgDomes.size() > 1) {
                 log.error("Auto-Apply feature only allows one seasonal strategy file per run");
-                d.put("erros", "Auto-Apply feature only allows one seasonal strategy file per run");
+                d.put("errors", "Auto-Apply feature only allows one seasonal strategy file per run");
                 return d;
             }
         }
@@ -204,6 +204,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                 }
                 strategyName = tmp[0];
 
+                log.info("Apply DOME {} for {}", strategyName, MapUtil.getValueOr(entry, "exname", "<Unknow>"));
                 log.debug("Looking for ss: {}", strategyName);
                 if (!strategyName.equals("")) {
                     if (stgDomes.containsKey(strategyName)) {
@@ -246,6 +247,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                 int tmpLength = tmp.length;
                 for (int i = 0; i < tmpLength; i++) {
                     String tmpDomeId = tmp[i].toUpperCase();
+                    log.info("Apply DOME {} for {}", tmpDomeId, MapUtil.getValueOr(entry, "exname", "<Unknow>"));
                     log.debug("Looking for dome_name: {}", tmpDomeId);
                     if (ovlDomes.containsKey(tmpDomeId)) {
                         domeEngine = new Engine(ovlDomes.get(tmpDomeId));

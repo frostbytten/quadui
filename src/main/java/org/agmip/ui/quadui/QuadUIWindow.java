@@ -356,7 +356,7 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void startTranslation() throws Exception {
-        convertIndicator.setActive(true);
+        enableConvertIndicator(true);
         txtStatus.setText("Importing data...");
         LOG.info("Importing data...");
         if (convertText.getText().endsWith(".json")) {
@@ -389,6 +389,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         }
                     } else {
                         Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
+                        enableConvertIndicator(false);
                     }
                 }
 
@@ -396,8 +397,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void executeFailed(Task<HashMap> arg0) {
                     Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
                     LOG.error(getStackTrace(arg0.getFault()));
-                    convertIndicator.setActive(false);
-                    convertButton.setEnabled(true);
+                    enableConvertIndicator(false);
                 }
             };
             task.execute(new TaskAdapter<HashMap>(listener));
@@ -418,6 +418,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     toOutput((HashMap) data.get("domeoutput"));
                 } else {
                     Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
+                    enableConvertIndicator(false);
                 }
             }
 
@@ -425,8 +426,7 @@ public class QuadUIWindow extends Window implements Bindable {
             public void executeFailed(Task<HashMap> arg0) {
                 Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
                 LOG.error(getStackTrace(arg0.getFault()));
-                convertIndicator.setActive(false);
-                convertButton.setEnabled(true);
+                enableConvertIndicator(false);
             }
         };
         task.execute(new TaskAdapter<HashMap>(listener));
@@ -457,16 +457,14 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void taskExecuted(Task<String> t) {
                     txtStatus.setText("Completed");
                     Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
-                    convertIndicator.setActive(false);
-                    convertButton.setEnabled(true);
+                    enableConvertIndicator(false);
                 }
 
                 @Override
                 public void executeFailed(Task<String> arg0) {
                     Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
                     LOG.error(getStackTrace(arg0.getFault()));
-                    convertIndicator.setActive(false);
-                    convertButton.setEnabled(true);
+                    enableConvertIndicator(false);
                 }
             };
             task.execute(new TaskAdapter<String>(listener));
@@ -483,8 +481,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     public void executeFailed(Task<String> arg0) {
                         Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
                         LOG.error(getStackTrace(arg0.getFault()));
-                        convertIndicator.setActive(false);
-                        convertButton.setEnabled(true);
+                        enableConvertIndicator(false);
                     }
                 };
                 task.execute(new TaskAdapter<String>(listener));
@@ -496,16 +493,14 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void executeFailed(Task<String> arg0) {
                     Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
                     LOG.error(getStackTrace(arg0.getFault()));
-                    convertIndicator.setActive(false);
-                    convertButton.setEnabled(true);
+                    enableConvertIndicator(false);
                 }
 
                 @Override
                 public void taskExecuted(Task<String> arg0) {
                     txtStatus.setText("Completed");
                     Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
-                    convertIndicator.setActive(false);
-                    convertButton.setEnabled(true);
+                    enableConvertIndicator(false);
                     LOG.info("=== Completed translation job ===");
                 }
             };
@@ -536,6 +531,11 @@ public class QuadUIWindow extends Window implements Bindable {
         lblStrategy.setEnabled(enabled);
         strategyText.setEnabled(enabled);
         browseStrategyFile.setEnabled(enabled);
+    }
+    
+    private void enableConvertIndicator(boolean enabled) {
+        convertIndicator.setActive(enabled);
+        convertButton.setEnabled(!enabled);
     }
 
     private void SetAutoDomeApplyMsg() {
