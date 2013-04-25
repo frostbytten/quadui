@@ -14,7 +14,7 @@
 		<jdk.version>1.6</jdk.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<product.buildtype>dev</product.buildtype>
-		<product.buildversion>rc5</product.buildversion>
+		<product.buildversion>rc5b</product.buildversion>
 		<product.buildts>${maven.build.timestamp}</product.buildts>
 	</properties>
 
