@@ -161,7 +161,7 @@ public class ApplyDomeTask extends Task<HashMap> {
             d.put("domeoutput", source);
             return d;
         }
-        
+
         if (autoApply) {
             HashMap<String, Object> d = new HashMap<String, Object>();
             if (ovlDomes.size() > 1) {
@@ -178,11 +178,26 @@ public class ApplyDomeTask extends Task<HashMap> {
         // Flatten the data and apply the dome.
         Engine domeEngine;
         ArrayList<HashMap<String, Object>> flattenedData = MapUtil.flatPack(source);
+        boolean noExpMode = false;
+        if (flattenedData.isEmpty()) {
+            log.info("No experiment data detected, will try Weather and Soil data only mode");
+            noExpMode = true;
+            flattenedData.addAll(MapUtil.getRawPackageContents(source, "soils"));
+            flattenedData.addAll(MapUtil.getRawPackageContents(source, "weathers"));
+//            flatSoilAndWthData(flattenedData, "soil");
+//            flatSoilAndWthData(flattenedData, "weather");
+            if (flattenedData.isEmpty()) {
+                HashMap<String, Object> d = new HashMap<String, Object>();
+                log.error("No data found from input file, no DOME will be applied for data set {}", source.toString());
+                d.put("errors", "Loaded raw data is invalid, please check input files");
+                return d;
+            }
+        }
 
         if (mode.equals("strategy")) {
             log.debug("Domes: {}", stgDomes.toString());
             log.debug("Entering Strategy mode!");
-            
+
             String stgDomeName = "";
             if (autoApply) {
                 for (String domeName : stgDomes.keySet()) {
@@ -204,7 +219,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                 }
                 strategyName = tmp[0];
 
-                log.info("Apply DOME {} for {}", strategyName, MapUtil.getValueOr(entry, "exname", "<Unknow>"));
+                log.info("Apply DOME {} for {}", strategyName, MapUtil.getValueOr(entry, "exname", MapUtil.getValueOr(entry, "soil_id", MapUtil.getValueOr(entry, "wst_id", "<Unknow>"))));
                 log.debug("Looking for ss: {}", strategyName);
                 if (!strategyName.equals("")) {
                     if (stgDomes.containsKey(strategyName)) {
@@ -212,7 +227,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                         entry.put("dome_applied", "Y");
                         entry.put("seasonal_dome_applied", "Y");
                         generatorEngine = new Engine(stgDomes.get(strategyName), true);
-                        ArrayList<HashMap<String, Object>> newEntries = generatorEngine.applyStg(entry);
+                        ArrayList<HashMap<String, Object>> newEntries = generatorEngine.applyStg(flatSoilAndWthData(entry, noExpMode));
                         log.debug("New Entries to add: {}", newEntries.size());
                         strategyResults.addAll(newEntries);
                     } else {
@@ -226,8 +241,12 @@ public class ApplyDomeTask extends Task<HashMap> {
             exp.clear();
             exp.addAll(strategyResults);
             flattenedData = MapUtil.flatPack(source);
+            if (noExpMode) {
+                flattenedData.addAll(MapUtil.getRawPackageContents(source, "soils"));
+                flattenedData.addAll(MapUtil.getRawPackageContents(source, "weathers"));
+            }
         }
-        
+
         String ovlDomeName = "";
         if (autoApply) {
             for (String domeName : ovlDomes.keySet()) {
@@ -247,13 +266,13 @@ public class ApplyDomeTask extends Task<HashMap> {
                 int tmpLength = tmp.length;
                 for (int i = 0; i < tmpLength; i++) {
                     String tmpDomeId = tmp[i].toUpperCase();
-                    log.info("Apply DOME {} for {}", tmpDomeId, MapUtil.getValueOr(entry, "exname", "<Unknow>"));
+                    log.info("Apply DOME {} for {}", tmpDomeId, MapUtil.getValueOr(entry, "exname", MapUtil.getValueOr(entry, "soil_id", MapUtil.getValueOr(entry, "wst_id", "<Unknow>"))));
                     log.debug("Looking for dome_name: {}", tmpDomeId);
                     if (ovlDomes.containsKey(tmpDomeId)) {
                         domeEngine = new Engine(ovlDomes.get(tmpDomeId));
                         entry.put("dome_applied", "Y");
                         entry.put("field_dome_applied", "Y");
-                        domeEngine.apply(entry);
+                        domeEngine.apply(flatSoilAndWthData(entry, noExpMode));
                         ArrayList<String> strategyList = domeEngine.getGenerators();
                         if (!strategyList.isEmpty()) {
                             log.warn("The following DOME commands in the field overlay file are ignored : {}", strategyList.toString());
@@ -265,7 +284,40 @@ public class ApplyDomeTask extends Task<HashMap> {
             }
         }
 
-        output.put("domeoutput", MapUtil.bundle(flattenedData));
+        if (noExpMode) {
+            output.put("domeoutput", source);
+        } else {
+            output.put("domeoutput", MapUtil.bundle(flattenedData));
+        }
         return output;
+    }
+
+//    private void flatSoilAndWthData(ArrayList<HashMap<String, Object>> flattenedData, String key) {
+//        ArrayList<HashMap<String, Object>> arr = MapUtil.getRawPackageContents(source, key + "s");
+//        for (HashMap<String, Object> data : arr) {
+//            HashMap<String, Object> tmp = new HashMap<String, Object>();
+//            tmp.put(key, data);
+//            flattenedData.add(tmp);
+//        }
+//    }
+
+    private HashMap<String, Object> flatSoilAndWthData(HashMap<String, Object> data, boolean noExpFlg) {
+
+        if (!noExpFlg) {
+            return data;
+        }
+
+        HashMap<String, Object> ret;
+        if (data.containsKey("dailyWeather")) {
+            ret = new HashMap<String, Object>();
+            ret.put("weather", data);
+        } else if (data.containsKey("soilLayer")) {
+            ret = new HashMap<String, Object>();
+            ret.put("soil", data);
+        } else {
+            ret = data;
+        }
+        return ret;
+
     }
 }
