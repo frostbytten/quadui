@@ -1,5 +1,6 @@
 package org.agmip.ui.quadui;
 
+import com.rits.cloning.Cloner;
 import java.io.File;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
@@ -94,6 +95,8 @@ public class TranslateToTask extends Task<String> {
      * @param data The data to translate
      */
     private void submitTask(ExecutorService executor, String trType, HashMap<String, Object> data, File path, boolean wthOnly, boolean compress) {
+        Cloner cloner = new Cloner();
+        data = cloner.deepClone(data);
         TranslatorOutput translator = null;
         if (trType.equals("DSSAT")) {
             if (wthOnly) {
