@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 import static org.agmip.util.JSONAdapter.*;
 import org.apache.pivot.beans.Bindable;
@@ -475,37 +474,43 @@ public class QuadUIWindow extends Window implements Bindable {
 
                     @Override
                     public void taskExecuted(Task<String> t) {
+                        LOG.info("Dump to JSON successfully");
+//                        toOutput2(models, t.getResult());
                     }
 
                     @Override
                     public void executeFailed(Task<String> arg0) {
-                        Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                        LOG.info("Dump to JSON failed");
                         LOG.error(getStackTrace(arg0.getFault()));
+                        Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
                         enableConvertIndicator(false);
                     }
                 };
                 task.execute(new TaskAdapter<String>(listener));
             }
-            TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected());
-            TaskListener<String> listener = new TaskListener<String>() {
-
-                @Override
-                public void executeFailed(Task<String> arg0) {
-                    Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
-                    LOG.error(getStackTrace(arg0.getFault()));
-                    enableConvertIndicator(false);
-                }
-
-                @Override
-                public void taskExecuted(Task<String> arg0) {
-                    txtStatus.setText("Completed");
-                    Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
-                    enableConvertIndicator(false);
-                    LOG.info("=== Completed translation job ===");
-                }
-            };
-            task.execute(new TaskAdapter<String>(listener));
+            toOutput2(models, map);
         }
+    }
+    
+    private void toOutput2(ArrayList<String> models, HashMap map) {
+        TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected());
+        TaskListener<String> listener = new TaskListener<String>() {
+            @Override
+            public void executeFailed(Task<String> arg0) {
+                Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                LOG.error(getStackTrace(arg0.getFault()));
+                enableConvertIndicator(false);
+            }
+
+            @Override
+            public void taskExecuted(Task<String> arg0) {
+                txtStatus.setText("Completed");
+                Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
+                enableConvertIndicator(false);
+                LOG.info("=== Completed translation job ===");
+            }
+        };
+        task.execute(new TaskAdapter<String>(listener));
     }
 
     private static String getStackTrace(Throwable aThrowable) {
