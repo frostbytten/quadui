@@ -290,6 +290,7 @@ public class QuadCmdLine {
                 TaskListener<String> listener = new TaskListener<String>() {
                     @Override
                     public void taskExecuted(Task<String> t) {
+//                        toOutput2(t.getResult());
                         t.abort();
                     }
 
@@ -301,22 +302,26 @@ public class QuadCmdLine {
                 };
                 task.execute(new TaskAdapter<String>(listener));
             }
-            TranslateToTask task = new TranslateToTask(models, map, outputPath, true);
-            TaskListener<String> listener = new TaskListener<String>() {
-                @Override
-                public void executeFailed(Task<String> arg0) {
-                    LOG.error(getStackTrace(arg0.getFault()));
-                    arg0.abort();
-                }
-
-                @Override
-                public void taskExecuted(Task<String> arg0) {
-                    LOG.info("=== Completed translation job ===");
-                    arg0.abort();
-                }
-            };
-            task.execute(new TaskAdapter<String>(listener));
+            toOutput2(map);
         }
+    }
+    
+    private void toOutput2(HashMap map) {
+        TranslateToTask task = new TranslateToTask(models, map, outputPath, true);
+        TaskListener<String> listener = new TaskListener<String>() {
+            @Override
+            public void executeFailed(Task<String> arg0) {
+                LOG.error(getStackTrace(arg0.getFault()));
+                arg0.abort();
+            }
+
+            @Override
+            public void taskExecuted(Task<String> arg0) {
+                LOG.info("=== Completed translation job ===");
+                arg0.abort();
+            }
+        };
+        task.execute(new TaskAdapter<String>(listener));
     }
 
     private void printHelp() {
