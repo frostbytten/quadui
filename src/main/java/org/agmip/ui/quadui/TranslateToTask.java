@@ -1,5 +1,6 @@
 package org.agmip.ui.quadui;
 
+import com.rits.cloning.Cloner;
 import java.io.File;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
@@ -14,8 +15,10 @@ import org.apache.pivot.util.concurrent.TaskExecutionException;
 import org.agmip.translators.apsim.ApsimOutput;
 import org.agmip.translators.dssat.DssatControllerOutput;
 import org.agmip.translators.dssat.DssatWeatherOutput;
-import org.agmip.util.AcmoUtil;
-        
+import org.agmip.acmo.util.AcmoUtil;
+import org.agmip.translators.stics.SticsOutput;
+
+// import com.google.common.io.Files;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,14 +31,16 @@ public class TranslateToTask extends Task<String> {
     private ArrayList<String> translateList;
     private ArrayList<String> weatherList, soilList;
     private String destDirectory;
+    private boolean compress;
     private static Logger LOG = LoggerFactory.getLogger(TranslateToTask.class);
 
-    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory) {
+    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress) {
         this.data = data;
         this.destDirectory = destDirectory;
         this.translateList = new ArrayList<String>();
         this.weatherList = new ArrayList<String>();
         this.soilList = new ArrayList<String>();
+        this.compress = compress;
         for (String trType : translateList) {
             if (!trType.equals("JSON")) {
                 this.translateList.add(trType);
@@ -61,47 +66,13 @@ public class TranslateToTask extends Task<String> {
                 for (String tr : translateList) {
                     // Generate the ACMO here (pre-generation) so we know what
                     // we should get out of everything.
-                    AcmoUtil.writeAcmo(destDirectory+File.separator+tr.toUpperCase(), data, tr.toLowerCase());
-                    if (tr.equals("DSSAT")) {
-                        if (data.size() == 1 && data.containsKey("weather")) {
-                            LOG.info("Running in weather only mode");
-                            submitTask(executor,tr,data,true);
-                        } else {
-                            submitTask(executor, tr, data, false);
-                        }
+                    File destDir = createModelDestDirectory(destDirectory, tr);
+                    AcmoUtil.writeAcmo(destDir.toString(), data, tr.toLowerCase());
+                    if (data.size() == 1 && data.containsKey("weather")) {
+                        LOG.info("Running in weather only mode");
+                        submitTask(executor, tr, data, destDir, true, compress);
                     } else {
-                        // Handle translators that do not support the multi-experiment
-                        // format.
-                        if (data.containsKey("experiments")) {
-                            for (HashMap<String, Object> experiment : (ArrayList<HashMap>) data.get("experiments")) {
-                                HashMap<String, Object> temp = new HashMap<String, Object>(experiment);
-                                int wKey, sKey;
-                                if (temp.containsKey("wst_id")) {
-                                    if ((wKey = weatherList.indexOf((String) temp.get("wst_id"))) != -1) {
-                                        temp.put("weather", ((ArrayList<HashMap<String, Object>>) data.get("weathers")).get(wKey));
-                                    }
-                                }
-                                if (temp.containsKey("soil_id")) {
-                                    if ((sKey = soilList.indexOf((String) temp.get("soil_id"))) != -1) {
-                                        temp.put("soil", ((ArrayList<HashMap<String, Object>>) data.get("soils")).get(sKey));
-                                    }
-                                }
-                                LOG.debug("JSON of temp:"+toJSON(temp));
-                                // need to re-implement properly for threading apsim
-                                //submitTask(executor, tr, temp);
-                                if(tr.equals("APSIM")) {
-                                    ApsimOutput translator = new ApsimOutput();
-                                    translator.writeFile(destDirectory+File.separator+"APSIM", temp);
-                                }
-                            }
-                        } else {
-                            boolean wthOnly = false;
-                            if ( data.size() == 1 && data.containsKey("weather") ) {
-                                wthOnly = true;
-                            }
-                            //Assume this is a single complete experiment
-                            submitTask(executor, tr, data, wthOnly);
-                        }
+                        submitTask(executor, tr, data, destDir, false, compress);
                     }
                 }
                 executor.shutdown();
@@ -123,21 +94,40 @@ public class TranslateToTask extends Task<String> {
      *                proper <code>TranslatorOutput</code> 
      * @param data The data to translate
      */
-    private void submitTask(ExecutorService executor, String trType, HashMap<String, Object> data, boolean wthOnly) {
+    private void submitTask(ExecutorService executor, String trType, HashMap<String, Object> data, File path, boolean wthOnly, boolean compress) {
+        Cloner cloner = new Cloner();
+        data = cloner.deepClone(data);
         TranslatorOutput translator = null;
-        String destination = "";
         if (trType.equals("DSSAT")) {
             if (wthOnly) {
+                LOG.info("DSSAT Weather Translator Started");
                 translator = new DssatWeatherOutput();
             } else { 
+                LOG.info("DSSAT Translator Started");
                 translator = new DssatControllerOutput();
             }
         } else if (trType.equals("APSIM")) {
+            LOG.info("APSIM Translator Started");
             translator = new ApsimOutput();
+        } else if (trType.equals("STICS")) {
+            LOG.info("STICS Translator Started");
+            translator = new SticsOutput();
         }
-        destination = destDirectory + File.separator + trType;
         LOG.debug("Translating with :"+translator.getClass().getName());
-        Runnable thread = new TranslateRunner(translator, data, destination);
+        Runnable thread = new TranslateRunner(translator, data, path.toString(), trType, compress);
         executor.execute(thread);
+    }
+
+    private static File createModelDestDirectory(String basePath, String model) {
+        model = model.toUpperCase();
+        File originalDestDir = new File(basePath+File.separator+model);
+        File destDirectory = originalDestDir;
+        int i=0;
+        while (destDirectory.exists()) {
+            i++;
+            destDirectory = new File(originalDestDir.toString()+"-"+i);
+        }
+        destDirectory.mkdirs();
+        return destDirectory;
     }
 }

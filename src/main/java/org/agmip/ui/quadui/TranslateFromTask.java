@@ -36,6 +36,7 @@ public class TranslateFromTask extends Task<HashMap> {
                     break;
                 }
                 if (ze.getName().toLowerCase().endsWith(".agmip")) {
+                    LOG.debug("Found .AgMIP file {}", ze.getName());
                     translator = new AgmipInput();
                     break;
                 }
@@ -60,7 +61,8 @@ public class TranslateFromTask extends Task<HashMap> {
         HashMap<String, Object> output = new HashMap<String, Object>();
         try {
             output = (HashMap<String, Object>) translator.readFile(file);
-            LOG.debug("Translate From Results: {}", output.toString());
+            // Only use in extreme cases
+            //LOG.debug("Translate From Results: {}", output.toString());
             return output;
         } catch (Exception ex) {
             output.put("errors", ex.getMessage());
