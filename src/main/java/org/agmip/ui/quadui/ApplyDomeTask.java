@@ -216,6 +216,9 @@ public class ApplyDomeTask extends Task<HashMap> {
                 String strategyName;
                 if (tmp.length > 1) {
                     log.warn("Multiple seasonal strategy dome is not supported yet, only the first dome will be applied");
+                    for (int i = 1; i < tmp.length; i++) {
+                        setFailedDomeId(entry, "seasonal_dome_failed", tmp[i]);
+                    }
                 }
                 strategyName = tmp[0];
 
@@ -232,6 +235,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                         strategyResults.addAll(newEntries);
                     } else {
                         log.error("Cannot find strategy: {}", strategyName);
+                        setFailedDomeId(entry, "seasonal_dome_failed", strategyName);
                     }
                 }
             }
@@ -279,6 +283,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                         }
                     } else {
                         log.error("Cannot find overlay: {}", tmpDomeId);
+                        setFailedDomeId(entry, "field_dome_failed", tmpDomeId);
                     }
                 }
             }
@@ -319,5 +324,14 @@ public class ApplyDomeTask extends Task<HashMap> {
         }
         return ret;
 
+    }
+    
+    private void setFailedDomeId(HashMap data, String failKey, String failId) {
+        String failIds;
+        if ((failIds = (String) data.get(failKey)) != null) {
+            data.put(failKey, failId);
+        } else {
+            data.put(failKey, failIds + "|" + failId);
+        }
     }
 }
