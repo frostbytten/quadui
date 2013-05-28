@@ -16,6 +16,7 @@ import org.agmip.translators.apsim.ApsimOutput;
 import org.agmip.translators.dssat.DssatControllerOutput;
 import org.agmip.translators.dssat.DssatWeatherOutput;
 import org.agmip.acmo.util.AcmoUtil;
+import org.agmip.translators.cropgrownau.CropGrowNAUOutput;
 import org.agmip.translators.stics.SticsOutput;
 
 // import com.google.common.io.Files;
@@ -112,6 +113,9 @@ public class TranslateToTask extends Task<String> {
         } else if (trType.equals("STICS")) {
             LOG.info("STICS Translator Started");
             translator = new SticsOutput();
+        } else if (trType.equals("CropGrow-NAU")) {
+            LOG.info("CropGrow-NAU Translator Started");
+            translator = new CropGrowNAUOutput();
         }
         LOG.debug("Translating with :"+translator.getClass().getName());
         Runnable thread = new TranslateRunner(translator, data, path.toString(), trType, compress);

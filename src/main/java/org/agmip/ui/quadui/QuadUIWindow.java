@@ -58,6 +58,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox modelApsim = null;
     private Checkbox modelDssat = null;
     private Checkbox modelStics = null;
+    private Checkbox modelCgnau = null;
     private Checkbox modelJson = null;
     private Checkbox optionCompress = null;
     private Label txtStatus = null;
@@ -151,12 +152,14 @@ public class QuadUIWindow extends Window implements Bindable {
         modelApsim          = (Checkbox) ns.get("model-apsim");
         modelDssat          = (Checkbox) ns.get("model-dssat");
         modelStics          = (Checkbox) ns.get("model-stics");
+        modelCgnau          = (Checkbox) ns.get("model-cgnau");
         modelJson           = (Checkbox) ns.get("model-json");
         optionCompress      = (Checkbox) ns.get("option-compress");
 
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
         checkboxGroup.add(modelStics);
+        checkboxGroup.add(modelCgnau);
         checkboxGroup.add(modelJson);
 
         outputText.setText("");
@@ -446,6 +449,9 @@ public class QuadUIWindow extends Window implements Bindable {
         }
         if (modelStics.isSelected()) {
             models.add("STICS");
+        }
+        if (modelCgnau.isSelected()) {
+            models.add("CropGrow-NAU");
         }
 
         if (models.size() == 1 && models.get(0).equals("JSON")) {
