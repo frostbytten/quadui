@@ -1,5 +1,6 @@
 package org.agmip.ui.quadui;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,6 +15,10 @@ import java.util.Properties;
 import java.util.Scanner;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.io.AceGenerator;
+import org.agmip.ace.io.AceParser;
+import org.agmip.ace.util.JsonFactoryImpl;
 import static org.agmip.util.JSONAdapter.*;
 import org.apache.pivot.beans.Bindable;
 import org.apache.pivot.collections.Map;
@@ -207,7 +212,8 @@ public class QuadUIWindow extends Window implements Bindable {
                                 && (!file.getName().toLowerCase().endsWith(".csv")
                                 && (!file.getName().toLowerCase().endsWith(".zip")
                                 && (!file.getName().toLowerCase().endsWith(".json")
-                                && (!file.getName().toLowerCase().endsWith(".agmip"))))));
+                                && (!file.getName().toLowerCase().endsWith(".aceb")
+                                && (!file.getName().toLowerCase().endsWith(".agmip")))))));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -367,6 +373,25 @@ public class QuadUIWindow extends Window implements Bindable {
                 String json = new Scanner(new File(convertText.getText()), "UTF-8").useDelimiter("\\A").next();
                 HashMap data = fromJSON(json);
 
+                dumpToAceb(data);
+                if (mode.equals("none")) {
+                    toOutput(data);
+                } else {
+                    LOG.info("Attempting to apply a new DOME");
+                    applyDome(data, mode);
+                }
+            } catch (Exception ex) {
+                LOG.error(getStackTrace(ex));
+            }
+        } else if (convertText.getText().endsWith(".aceb")) {
+            try {
+                // Load the ACE Binay file into memory and transform it to old JSON format and send it down the line.
+                AceDataset acebData = AceParser.parseACEB(new File(convertText.getText()));
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                AceGenerator.generate(baos, acebData, false);
+                HashMap data = fromJSON(baos.toString());
+                baos.close();
+
                 if (mode.equals("none")) {
                     toOutput(data);
                 } else {
@@ -384,6 +409,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void taskExecuted(Task<HashMap> t) {
                     HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
+                        dumpToAceb(data);
                         if (mode.equals("none")) {
                             toOutput(data);
                         } else {
@@ -404,6 +430,26 @@ public class QuadUIWindow extends Window implements Bindable {
             };
             task.execute(new TaskAdapter<HashMap>(listener));
         }
+    }
+
+    private void dumpToAceb(HashMap map) {
+        txtStatus.setText("Generate ACE Baniry file...");
+        LOG.info("Generate ACE Baniry file...");
+        DumpToAceb task = new DumpToAceb(convertText.getText(), outputText.getText(), map);
+        TaskListener<String> listener = new TaskListener<String>() {
+            @Override
+            public void taskExecuted(Task<String> t) {
+                LOG.info("Dump to ACE Binary successfully");
+            }
+
+            @Override
+            public void executeFailed(Task<String> arg0) {
+                LOG.info("Dump to ACE Binary failed");
+                LOG.error(getStackTrace(arg0.getFault()));
+                Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+            }
+        };
+        task.execute(new TaskAdapter<String>(listener));
     }
 
     private void applyDome(HashMap map, String mode) {
@@ -460,6 +506,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
                 @Override
                 public void taskExecuted(Task<String> t) {
+                    LOG.info("Dump to JSON successfully");
                     txtStatus.setText("Completed");
                     Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
                     enableConvertIndicator(false);
@@ -467,8 +514,9 @@ public class QuadUIWindow extends Window implements Bindable {
 
                 @Override
                 public void executeFailed(Task<String> arg0) {
-                    Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                    LOG.info("Dump to JSON failed");
                     LOG.error(getStackTrace(arg0.getFault()));
+                    Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
                     enableConvertIndicator(false);
                 }
             };
@@ -571,6 +619,9 @@ public class QuadUIWindow extends Window implements Bindable {
             } catch (IOException ex) {
             }
 
+        } else if (fileName.endsWith(".agmip") || fileName.endsWith(".aceb")) {
+            msg = "Selected DOME will be Auto applied";
+            autoApply = true;
         }
         txtAutoDomeApplyMsg.setText(msg);
     }

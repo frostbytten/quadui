@@ -1,5 +1,6 @@
 package org.agmip.ui.quadui;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -11,9 +12,14 @@ import java.util.HashMap;
 import java.util.Scanner;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.io.AceGenerator;
+import org.agmip.ace.io.AceParser;
 import static org.agmip.util.JSONAdapter.*;
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskListener;
+import org.apache.pivot.wtk.Alert;
+import org.apache.pivot.wtk.MessageType;
 import org.apache.pivot.wtk.TaskAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -202,6 +208,25 @@ public class QuadCmdLine {
                 String json = new Scanner(new File(convertPath), "UTF-8").useDelimiter("\\A").next();
                 HashMap data = fromJSON(json);
 
+                dumpToAceb(data);
+                if (mode.equals(DomeMode.NONE)) {
+                    toOutput(data);
+                } else {
+                    LOG.debug("Attempting to apply a new DOME");
+                    applyDome(data, mode.toString().toLowerCase());
+                }
+            } catch (Exception ex) {
+                LOG.error(getStackTrace(ex));
+            }
+        } else if (convertPath.endsWith(".aceb")) {
+            try {
+                // Load the ACE Binay file into memory and transform it to old JSON format and send it down the line.
+                AceDataset acebData = AceParser.parseACEB(new File(convertPath));
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                AceGenerator.generate(baos, acebData, false);                
+                HashMap data = fromJSON(baos.toString());
+                baos.close();
+
                 if (mode.equals(DomeMode.NONE)) {
                     toOutput(data);
                 } else {
@@ -218,6 +243,7 @@ public class QuadCmdLine {
                 public void taskExecuted(Task<HashMap> t) {
                     HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
+                        dumpToAceb(data);
                         if (mode.equals(DomeMode.NONE)) {
                             toOutput(data);
                         } else {
@@ -237,6 +263,24 @@ public class QuadCmdLine {
             };
             task.execute(new TaskAdapter<HashMap>(listener));
         }
+    }
+
+    private void dumpToAceb(HashMap map) {
+        LOG.info("Generate ACE Baniry file...");
+        DumpToAceb task = new DumpToAceb(convertPath, outputPath, map);
+        TaskListener<String> listener = new TaskListener<String>() {
+            @Override
+            public void taskExecuted(Task<String> t) {
+                LOG.info("Dump to ACE Binary successfully");
+            }
+
+            @Override
+            public void executeFailed(Task<String> arg0) {
+                LOG.info("Dump to ACE Binary failed");
+                LOG.error(getStackTrace(arg0.getFault()));
+            }
+        };
+        task.execute(new TaskAdapter<String>(listener));
     }
 
     private void applyDome(HashMap map, String mode) {
@@ -392,6 +436,8 @@ public class QuadCmdLine {
             } catch (IOException ex) {
             }
 
+        } else if (fileName.endsWith(".agmip") || fileName.endsWith(".aceb")) {
+            autoApply = true;
         }
         return autoApply;
     }
