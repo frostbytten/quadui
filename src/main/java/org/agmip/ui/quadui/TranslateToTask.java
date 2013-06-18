@@ -12,7 +12,7 @@ import org.agmip.core.types.TranslatorOutput;
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskExecutionException;
 
-import org.agmip.translators.apsim.ApsimOutput;
+import org.agmip.translators.apsim.ApsimWriter;
 import org.agmip.translators.dssat.DssatControllerOutput;
 import org.agmip.translators.dssat.DssatWeatherOutput;
 import org.agmip.acmo.util.AcmoUtil;
@@ -109,7 +109,7 @@ public class TranslateToTask extends Task<String> {
             }
         } else if (trType.equals("APSIM")) {
             LOG.info("APSIM Translator Started");
-            translator = new ApsimOutput();
+            translator = new ApsimWriter();
         } else if (trType.equals("STICS")) {
             LOG.info("STICS Translator Started");
             translator = new SticsOutput();
