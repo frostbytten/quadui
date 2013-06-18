@@ -19,20 +19,21 @@ public class ApplyDomeTask extends Task<HashMap> {
     private static Logger log = LoggerFactory.getLogger(ApplyDomeTask.class);
     private HashMap<String, HashMap<String, Object>> ovlDomes = new HashMap<String, HashMap<String, Object>>();
     private HashMap<String, HashMap<String, Object>> stgDomes = new HashMap<String, HashMap<String, Object>>();
-//    private HashMap<String, ArrayList<String>> links = new HashMap<String, ArrayList<String>>();
+    private HashMap<String, String> ovlLinks = new HashMap<String, String>();
+    private HashMap<String, String> stgLinks = new HashMap<String, String>();
 //    private HashMap<String, ArrayList<String>> wthLinks = new HashMap<String, ArrayList<String>>();
 //    private HashMap<String, ArrayList<String>> soilLinks = new HashMap<String, ArrayList<String>>();
     private HashMap source;
     private String mode;
     private boolean autoApply;
 
-
-//    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m) {
-    public ApplyDomeTask(String fieldFile, String strategyFile, String mode, HashMap m, boolean autoApply) {
+    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, boolean autoApply) {
         this.source = m;
         this.mode = mode;
         this.autoApply = autoApply;
         // Setup the domes here.
+        loadDomeLinkFile(linkFile);
+        log.debug("link csv: {}", ovlLinks);
 
         if (mode.equals("strategy")) {
             loadDomeFile(strategyFile, stgDomes);
@@ -40,11 +41,10 @@ public class ApplyDomeTask extends Task<HashMap> {
         loadDomeFile(fieldFile, ovlDomes);
     }
 
-//    private void loadDomeLinkFile(String fileName) {
-//        String fileNameTest = fileName.toUpperCase();
-//
-//        log.debug("Loading LINK file: {}", fileName);
-//
+    private void loadDomeLinkFile(String fileName) {
+        String fileNameTest = fileName.toUpperCase();
+        log.debug("Loading LINK file: {}", fileName);
+
 //        if (fileNameTest.endsWith(".ZIP")) {
 //            log.debug("Entering Zip file handling");
 //            ZipFile z = null;
@@ -59,11 +59,15 @@ public class ApplyDomeTask extends Task<HashMap> {
 //                        log.debug("Processing file: {}", zipFileName.getName());
 //                        DomeInput translator = new DomeInput();
 //                        translator.readCSV(z.getInputStream(entry));
-//                        HashMap<String, Object> dome = translator.getDome();
-//                        log.debug("dome info: {}", dome.toString());
-//                        String domeName = DomeUtil.generateDomeName(dome);
-//                        if (! domeName.equals("----")) {
-////                            links.put(domeName, new HashMap<String, Object>(dome));
+//                        HashMap<String, Object> link = translator.getDome();
+//                        log.debug("link info: {}", link.toString());
+//                        if (!link.isEmpty()) {
+//                            if (link.containsKey("link_overlay")) {
+//                                // Combine csv link
+//                            }
+//                            if (link.containsKey("link_stragty")) {
+//                                // Combine csv link
+//                            }
 //                        }
 //                    }
 //                }
@@ -73,23 +77,84 @@ public class ApplyDomeTask extends Task<HashMap> {
 //                HashMap<String, Object> d = new HashMap<String, Object>();
 //                d.put("errors", ex.getMessage());
 //            }
-//        } else if (fileNameTest.endsWith(".CSV")) {
-//            log.debug("Entering single file DOME handling");
-//            try {
-//                DomeInput translator = new DomeInput();
-//                HashMap<String, Object> dome = (HashMap<String, Object>) translator.readFile(fileName);
-//                String domeName = DomeUtil.generateDomeName(dome);
-//                log.debug("Dome name: {}", domeName);
-//                log.debug("Dome layout: {}", dome.toString());
-//
-////                links.put(domeName, dome);
-//            } catch (Exception ex) {
-//                log.error("Error processing DOME file: {}", ex.getMessage());
-//                HashMap<String, Object> d = new HashMap<String, Object>();
-//                d.put("errors", ex.getMessage());
-//            }
-//        }
-//    }
+//        } else
+        if (fileNameTest.endsWith(".CSV")) {
+            log.debug("Entering single file DOME handling");
+            try {
+                DomeInput translator = new DomeInput();
+                HashMap<String, Object> link = (HashMap<String, Object>) translator.readFile(fileName);
+                log.debug("link info: {}", link.toString());
+                if (!link.isEmpty()) {
+                    if (link.containsKey("link_overlay")) {
+                        ovlLinks = (HashMap<String, String>) link.get("link_overlay");
+                    }
+                    if (link.containsKey("link_stragty")) {
+                        stgLinks = (HashMap<String, String>) link.get("link_stragty");
+                    }
+                }
+            } catch (Exception ex) {
+                log.error("Error processing DOME file: {}", ex.getMessage());
+                HashMap<String, Object> d = new HashMap<String, Object>();
+                d.put("errors", ex.getMessage());
+            }
+        }
+    }
+
+    private String getLinkIds(String domeType, HashMap entry) {
+        String exname = MapUtil.getValueOr(entry, "exname", "");
+        String wst_id = MapUtil.getValueOr(entry, "wst_id", "");
+        String soil_id = MapUtil.getValueOr(entry, "soil_id", "");
+        String linkIdsExp = getLinkIds(domeType, "EXNAME", exname);
+        String linkIdsWst = getLinkIds(domeType, "WST_ID", wst_id);
+        String linkIdsSoil = getLinkIds(domeType, "SOIL_ID", soil_id);
+        String ret = "";
+        if (!linkIdsExp.equals("")) {
+            ret += linkIdsExp + "|";
+        }
+        if (!linkIdsWst.equals("")) {
+            ret += linkIdsWst + "|";
+        }
+        if (!linkIdsSoil.equals("")) {
+            ret += linkIdsSoil;
+        }
+        if (ret.endsWith("|")) {
+            ret = ret.substring(0, ret.length() - 1);
+        }
+        return ret;
+    }
+
+    private String getLinkIds(String domeType, String idType, String id) {
+        HashMap<String, String> links;
+        if (domeType.equals("strategy")) {
+            links = stgLinks;
+        } else if (domeType.equals("overlay")) {
+            links = ovlLinks;
+        } else {
+            return "";
+        }
+        if (links.isEmpty() || id.equals("")) {
+            return "";
+        }
+        String linkIds = "";
+        ArrayList<String> altLinkIds = new ArrayList();
+        altLinkIds.add(idType + "_ALL");
+        if (id.matches(".+_\\d+$") && domeType.equals("overlay")) {
+            altLinkIds.add(idType + "_" + id.replaceAll("_\\d+$", ""));
+        } else if (id.matches(".+_\\d+__\\d+$") && domeType.equals("strategy")) {
+            altLinkIds.add(idType + "_" + id.replaceAll("_\\d+__\\d+$", ""));
+        }
+        altLinkIds.add(idType + "_" + id);
+        for (String linkId : altLinkIds) {
+            if (links.containsKey(linkId)) {
+                linkIds += links.get(linkId) + "|";
+            }
+        }
+        if (linkIds.endsWith("|")) {
+            linkIds = linkIds.substring(0, linkIds.length() - 1);
+        }
+        return linkIds;
+    }
+
     private void loadDomeFile(String fileName, HashMap<String, HashMap<String, Object>> domes) {
         String fileNameTest = fileName.toUpperCase();
 
@@ -211,7 +276,14 @@ public class ApplyDomeTask extends Task<HashMap> {
                 if (autoApply) {
                     entry.put("seasonal_strategy", stgDomeName);
                 }
-                String domeName = MapUtil.getValueOr(entry, "seasonal_strategy", "");
+                String domeName = getLinkIds("strategy", entry);
+                if (domeName.equals("")) {
+                    domeName = MapUtil.getValueOr(entry, "seasonal_strategy", "");
+                } else {
+                    entry.put("seasonal_strategy", domeName);
+                    log.debug("Apply seasonal strategy domes from link csv: {}", domeName);
+                }
+
                 String tmp[] = domeName.split("[|]");
                 String strategyName;
                 if (tmp.length > 1) {
@@ -264,7 +336,14 @@ public class ApplyDomeTask extends Task<HashMap> {
             if (autoApply) {
                 entry.put("field_overlay", ovlDomeName);
             }
-            String domeName = MapUtil.getValueOr(entry, "field_overlay", "");
+            String domeName = getLinkIds("overlay", entry);
+            if (domeName.equals("")) {
+                domeName = MapUtil.getValueOr(entry, "field_overlay", "");
+            } else {
+                entry.put("field_overlay", domeName);
+                log.debug("Apply field overlay domes from link csv: {}", domeName);
+            }
+
             if (!domeName.equals("")) {
                 String tmp[] = domeName.split("[|]");
                 int tmpLength = tmp.length;
@@ -305,7 +384,6 @@ public class ApplyDomeTask extends Task<HashMap> {
 //            flattenedData.add(tmp);
 //        }
 //    }
-
     private HashMap<String, Object> flatSoilAndWthData(HashMap<String, Object> data, boolean noExpFlg) {
 
         if (!noExpFlg) {
@@ -325,7 +403,7 @@ public class ApplyDomeTask extends Task<HashMap> {
         return ret;
 
     }
-    
+
     private void setFailedDomeId(HashMap data, String failKey, String failId) {
         String failIds;
         if ((failIds = (String) data.get(failKey)) != null) {

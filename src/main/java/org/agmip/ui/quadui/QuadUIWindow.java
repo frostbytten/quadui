@@ -18,10 +18,11 @@ import java.util.zip.ZipFile;
 import org.agmip.ace.AceDataset;
 import org.agmip.ace.io.AceGenerator;
 import org.agmip.ace.io.AceParser;
-import org.agmip.ace.util.JsonFactoryImpl;
 import static org.agmip.util.JSONAdapter.*;
+import org.apache.pivot.beans.BXMLSerializer;
 import org.apache.pivot.beans.Bindable;
 import org.apache.pivot.collections.Map;
+import org.apache.pivot.serialization.SerializationException;
 import org.apache.pivot.util.Filter;
 import org.apache.pivot.util.Resources;
 import org.apache.pivot.util.concurrent.Task;
@@ -256,30 +257,33 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         });
 
-//        browseLinkFile.getButtonPressListeners().add(new ButtonPressListener() {
-//            @Override
-//            public void buttonPressed(Button button) {
-//                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
-//                browse.setDisabledFileFilter(new Filter<File>() {
-//
-//                    @Override
-//                    public boolean include(File file) {
-//                        return (file.isFile()
-//                                && (!file.getName().toLowerCase().endsWith(".csv"))
-//                                && (!file.getName().toLowerCase().endsWith(".zip")));
-//                    }
-//                });
-//                browse.open(QuadUIWindow.this, new SheetCloseListener() {
-//                    @Override
-//                    public void sheetClosed(Sheet sheet) {
-//                        if (sheet.getResult()) {
-//                            File linkFile = browse.getSelectedFile();
-//                            linkText.setText(linkFile.getPath());
-//                        }
-//                    }
-//                });
-//            }
-//        });
+        browseLinkFile.getButtonPressListeners().add(new ButtonPressListener() {
+            @Override
+            public void buttonPressed(Button button) {
+                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+                browse.setDisabledFileFilter(new Filter<File>() {
+
+                    @Override
+                    public boolean include(File file) {
+                        return (file.isFile()
+                                && (!file.getName().toLowerCase().endsWith(".csv"))
+                                && (!file.getName().toLowerCase().endsWith(".zip")));
+                    }
+                });
+                browse.open(QuadUIWindow.this, new SheetCloseListener() {
+                    @Override
+                    public void sheetClosed(Sheet sheet) {
+                        if (sheet.getResult()) {
+                            File linkFile = browse.getSelectedFile();
+                            linkText.setText(linkFile.getPath());
+                            // Disable auto apply when link csv file is provided
+                            txtAutoDomeApplyMsg.setText("");
+                            autoApply = false;
+                        }
+                    }
+                });
+            }
+        });
 
         browseFieldFile.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
@@ -455,8 +459,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private void applyDome(HashMap map, String mode) {
         txtStatus.setText("Applying DOME...");
         LOG.info("Applying DOME...");
-//        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map);
-        ApplyDomeTask task = new ApplyDomeTask(fieldText.getText(), strategyText.getText(), mode, map, autoApply);
+        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map, autoApply);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
             public void taskExecuted(Task<HashMap> t) {
@@ -575,9 +578,9 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void enableLinkFile(boolean enabled) {
-//            lblLink.setEnabled(enabled);
-//            linkText.setEnabled(enabled);
-//            browseLinkFile.setEnabled(enabled);
+            lblLink.setEnabled(enabled);
+            linkText.setEnabled(enabled);
+            browseLinkFile.setEnabled(enabled);
     }
 
     private void enableFieldOverlay(boolean enabled) {
@@ -624,5 +627,16 @@ public class QuadUIWindow extends Window implements Bindable {
             autoApply = true;
         }
         txtAutoDomeApplyMsg.setText(msg);
+//        if (autoApply) {
+//            QuadUILinkSheet s;
+//            try {
+//                s = (QuadUILinkSheet) new BXMLSerializer().readObject(getClass().getResource("/link_sheet.bxml"));
+//                s.open(QuadUIWindow.this);
+//            } catch (IOException ex) {
+//                ex.printStackTrace();
+//            } catch (SerializationException ex) {
+//                ex.printStackTrace();
+//            }
+//        }
     }
 }

@@ -42,7 +42,7 @@ public class QuadCmdLine {
     private static Logger LOG = LoggerFactory.getLogger(QuadCmdLine.class);
     private DomeMode mode = DomeMode.NONE;
     private String convertPath = null;
-//    private String linkPath = null;
+    private String linkPath = null;
     private String fieldPath = null;
     private String strategyPath = null;
     private String outputPath = null;
@@ -112,13 +112,13 @@ public class QuadCmdLine {
                 convertPath = args[i++];
             }
             if (pathNum > 2) {
-//                linkPath = args[i++];
+                linkPath = args[i++];
                 fieldPath = args[i++];
             }
             if (pathNum > 3) {
-//                fieldPath = args[i++];
-//            }
-//            if (pathNum > 4) {
+                fieldPath = args[i++];
+            }
+            if (pathNum > 4) {
                 strategyPath = args[i++];
             }
             if (i < args.length) {
@@ -154,19 +154,19 @@ public class QuadCmdLine {
 
         if (mode.equals(DomeMode.NONE)) {
         } else if (mode.equals(DomeMode.FIELD)) {
-//            if (!isValidPath(linkPath, true)) {
-//                LOG.warn("link_path is invalid : " + linkPath);
-//                return false;
-//            } else 
+            if (!isValidPath(linkPath, true)) {
+                LOG.warn("link_path is invalid : " + linkPath);
+                return false;
+            } else 
             if (!isValidPath(fieldPath, true)) {
                 LOG.warn("field_path is invalid : " + fieldPath);
                 return false;
             }
         } else if (mode.equals(DomeMode.STRATEGY)) {
-//            if (!isValidPath(linkPath, true)) {
-//                LOG.warn("link_path is invalid : " + linkPath);
-//                return false;
-//            } else
+            if (!isValidPath(linkPath, true)) {
+                LOG.warn("link_path is invalid : " + linkPath);
+                return false;
+            } else
             if (!isValidPath(fieldPath, true)) {
                 LOG.warn("field_path is invalid : " + fieldPath);
                 return false;
@@ -285,8 +285,7 @@ public class QuadCmdLine {
 
     private void applyDome(HashMap map, String mode) {
         LOG.info("Applying DOME...");
-//        ApplyDomeTask task = new ApplyDomeTask(linkPath, fieldPath, strategyPath, mode, map);
-        ApplyDomeTask task = new ApplyDomeTask(fieldPath, strategyPath, mode, map, isAutoDomeApply());
+        ApplyDomeTask task = new ApplyDomeTask(linkPath, fieldPath, strategyPath, mode, map, isAutoDomeApply());
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
             public void taskExecuted(Task<HashMap> t) {
@@ -370,8 +369,8 @@ public class QuadCmdLine {
 
     private void printHelp() {
         if (helpFlg) {
-//            System.out.println("\nThe arguments format : <dome_mode_option> <model_option> <convert_path> <link_path> <field_path> <strategy_path> <output_path>");
-            System.out.println("\nThe arguments format : <dome_mode_option> <model_option> <convert_path> <field_path> <strategy_path> <output_path>");
+            System.out.println("\nThe arguments format : <dome_mode_option> <model_option> <convert_path> <link_path> <field_path> <strategy_path> <output_path>");
+//            System.out.println("\nThe arguments format : <dome_mode_option> <model_option> <convert_path> <field_path> <strategy_path> <output_path>");
             System.out.println("\t<dome_mode_option>");
             System.out.println("\t\t-n | -none\tRaw Data Only, Default");
             System.out.println("\t\t-f | -filed\tField Overlay, will require Field Overlay File");
@@ -384,8 +383,8 @@ public class QuadCmdLine {
             System.out.println("\t\t* Could be combined input like -DAJ or -DJ");
             System.out.println("\t<convert_path>");
             System.out.println("\t\tThe path for file to be converted");
-//            System.out.println("\t<link_path>");
-//            System.out.println("\t\tThe path for file to be used for link dome command to data set");
+            System.out.println("\t<link_path>");
+            System.out.println("\t\tThe path for file to be used for link dome command to data set");
             System.out.println("\t<field_path>");
             System.out.println("\t\tThe path for file to be used for field overlay");
             System.out.println("\t<strategy_path>");
@@ -402,7 +401,7 @@ public class QuadCmdLine {
     private void argsInfo() {
         LOG.info("Dome mode: \t" + mode);
         LOG.info("convertPath:\t" + convertPath);
-//        LOG.info("linkPath: \t" + linkPath);
+        LOG.info("linkPath: \t" + linkPath);
         LOG.info("fieldPath: \t" + fieldPath);
         LOG.info("strategyPath:\t" + strategyPath);
         LOG.info("outputPath:\t" + outputPath);
@@ -420,7 +419,9 @@ public class QuadCmdLine {
         File convertFile = new File(convertPath);
         String fileName = convertFile.getName().toLowerCase();
         boolean autoApply = false;
-        if (fileName.endsWith(".zip")) {
+        if (!linkPath.equals("")) {
+            autoApply = false;
+        } else if (fileName.endsWith(".zip")) {
             try {
                 ZipFile zf = new ZipFile(convertFile);
                 Enumeration<? extends ZipEntry> e = zf.entries();
