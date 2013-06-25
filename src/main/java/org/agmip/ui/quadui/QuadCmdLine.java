@@ -37,7 +37,7 @@ public class QuadCmdLine {
 
     public enum Model {
 
-        DSSAT, APSIM, STICS, JSON
+        DSSAT, APSIM, STICS, WOFOST, CropGrowNAU, JSON
     }
     private static Logger LOG = LoggerFactory.getLogger(QuadCmdLine.class);
     private DomeMode mode = DomeMode.NONE;
@@ -89,6 +89,10 @@ public class QuadCmdLine {
                 addModel(Model.APSIM.toString());
             } else if (args[i].equalsIgnoreCase("-stics")) {
                 addModel(Model.STICS.toString());
+            } else if (args[i].equalsIgnoreCase("-wofost")) {
+                addModel(Model.WOFOST.toString());
+            } else if (args[i].equalsIgnoreCase("-cropgrownau")) {
+                addModel("CropGrow-NAU");
             } else if (args[i].equalsIgnoreCase("-json")) {
                 addModel(Model.JSON.toString());
             } else {
@@ -100,6 +104,12 @@ public class QuadCmdLine {
                 }
                 if (args[i].contains("S")) {
                     addModel(Model.STICS.toString());
+                }
+                if (args[i].contains("W")) {
+                    addModel(Model.WOFOST.toString());
+                }
+                if (args[i].contains("C")) {
+                    addModel("CropGrow-NAU");
                 }
                 if (args[i].contains("J")) {
                     addModel(Model.JSON.toString());
@@ -379,6 +389,8 @@ public class QuadCmdLine {
             System.out.println("\t\t-D | -dssat\tDSSAT");
             System.out.println("\t\t-A | -apsim\tAPSIM");
             System.out.println("\t\t-S | -stics\tSTICS");
+            System.out.println("\t\t-W | -wofost\tWOFOST");
+            System.out.println("\t\t-C | -cropgrownau\tCropGrow-NAU");
             System.out.println("\t\t-J | -json\tJSON");
             System.out.println("\t\t* Could be combined input like -DAJ or -DJ");
             System.out.println("\t<convert_path>");

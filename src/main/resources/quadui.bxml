@@ -74,6 +74,7 @@
                 <Checkbox bxml:id="model-dssat" buttonData="DSSAT"/>
                 <Checkbox bxml:id="model-apsim" buttonData="APSIM"/>
                 <Checkbox bxml:id="model-stics"  buttonData="STICS" />
+                <Checkbox bxml:id="model-wofost"  buttonData="WOFOST" />
                 <Checkbox bxml:id="model-cgnau"  buttonData="CropGrow-NAU" />
                 <Checkbox bxml:id="model-json"  buttonData="JSON" />
               </BoxPane>
