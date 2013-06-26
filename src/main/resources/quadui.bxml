@@ -61,7 +61,7 @@
           <Label bxml:id="linkLabel" text="DOME Link File:" styles="{font:{bold:true}}" enabled="false"/>
           <BoxPane orientation="horizontal"><TextInput bxml:id="linkText" editable="false" enabled="false"/><PushButton bxml:id="browseLinkButton" buttonData="Browse" enabled="false"/></BoxPane>
         </BoxPane>
-        <BoxPane orientation="vertical" styles="{padding: 6}">
+        <BoxPane orientation="vertical" styles="{padding: 6}" visible="false">
           <Label text="Output Directory:" styles="{font:{bold:true}}" />
           <BoxPane orientation="horizontal"><TextInput bxml:id="outputText" editable="false"/><PushButton bxml:id="browseOutputButton" buttonData="Browse"/></BoxPane>
         </BoxPane>
