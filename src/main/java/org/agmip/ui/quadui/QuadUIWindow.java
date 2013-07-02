@@ -173,7 +173,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
         outputText.setText("");
         txtVersion.setText(quadVersion);
-        LOG.info("QuadUI {} lauched", quadVersion);
+        LOG.info("QuadUI {} lauched with JAVA {} under OS {}", quadVersion, System.getProperty("java.runtime.version"), System.getProperty("os.name"));
         mode = "none";
 
         convertButton.getButtonPressListeners().add(new ButtonPressListener() {
