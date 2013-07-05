@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import org.agmip.common.Functions;
 
 import org.apache.pivot.util.concurrent.Task;
 import org.agmip.core.types.TranslatorInput;
@@ -65,7 +66,8 @@ public class TranslateFromTask extends Task<HashMap> {
             //LOG.debug("Translate From Results: {}", output.toString());
             return output;
         } catch (Exception ex) {
-            output.put("errors", ex.getMessage());
+            LOG.error(Functions.getStackTrace(ex));
+            output.put("errors", ex.toString());
             return output;
         }
     }
