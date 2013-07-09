@@ -18,6 +18,7 @@ import java.util.zip.ZipFile;
 import org.agmip.ace.AceDataset;
 import org.agmip.ace.io.AceGenerator;
 import org.agmip.ace.io.AceParser;
+import org.agmip.common.Functions;
 import static org.agmip.util.JSONAdapter.*;
 import org.apache.pivot.beans.BXMLSerializer;
 import org.apache.pivot.beans.Bindable;
@@ -68,6 +69,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox modelCgnau = null;
     private Checkbox modelJson = null;
     private Checkbox optionCompress = null;
+    private Checkbox optionOverwrite = null;
     private Label txtStatus = null;
     private Label txtAutoDomeApplyMsg = null;
     private Label txtVersion = null;
@@ -163,6 +165,7 @@ public class QuadUIWindow extends Window implements Bindable {
         modelCgnau          = (Checkbox) ns.get("model-cgnau");
         modelJson           = (Checkbox) ns.get("model-json");
         optionCompress      = (Checkbox) ns.get("option-compress");
+        optionOverwrite      = (Checkbox) ns.get("option-overwrite");
 
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
@@ -488,7 +491,6 @@ public class QuadUIWindow extends Window implements Bindable {
 
     private void toOutput(HashMap map) {
         txtStatus.setText("Generating model input files...");
-        LOG.info("Generating model input files...");
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {
             models.add("JSON");
@@ -508,6 +510,17 @@ public class QuadUIWindow extends Window implements Bindable {
         if (modelCgnau.isSelected()) {
             models.add("CropGrow-NAU");
         }
+        if (optionOverwrite.isSelected()) {
+            LOG.info("Clean the previous output folders...");
+            String outPath = outputText.getText() + File.separator;
+            for (String model : models) {
+                File dir = new File(outPath + model);
+                if (!Functions.clearDirectory(dir)) {
+                    LOG.warn("Failed to clean {} folder since it is being used by other process", model);
+                }
+            }
+        }
+        LOG.info("Generating model input files...");
 
         if (models.size() == 1 && models.get(0).equals("JSON")) {
             DumpToJson task = new DumpToJson(convertText.getText(), outputText.getText(), map);
