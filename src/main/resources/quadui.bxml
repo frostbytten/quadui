@@ -85,6 +85,7 @@
                   <ButtonGroup bxml:id="outputOptions"/>
                 </bxml:define>
                 <Checkbox bxml:id="option-compress" buttonData="Compress Output"/>
+                <Checkbox bxml:id="option-overwrite" buttonData="Overwrite Previous Output Data"/>
               </BoxPane>
             </Border>
         </BoxPane>
