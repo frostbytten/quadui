@@ -680,7 +680,7 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private FileBrowserSheet openFileBrowserSheet(String lastPathId) {
-        if (outputText.getText().equals("")) {
+        if (convertText.getText().equals("")) {
             String lastPath = pref.get(lastPathId, "");
             File tmp = new File(lastPath);
             if (lastPath.equals("") || !tmp.exists()) {
@@ -692,7 +692,12 @@ public class QuadUIWindow extends Window implements Bindable {
                 return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, lastPath);
             }
         } else {
-            return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+            try {
+                String path = new File(convertText.getText()).getCanonicalFile().getParent();
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, path);
+            } catch (IOException ex) {
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
+            }
         }
     }
     
