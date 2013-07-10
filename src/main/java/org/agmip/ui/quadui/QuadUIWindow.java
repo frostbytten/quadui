@@ -13,6 +13,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.prefs.Preferences;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.agmip.ace.AceDataset;
@@ -33,9 +34,11 @@ import org.apache.pivot.wtk.ActivityIndicator;
 import org.apache.pivot.wtk.Alert;
 import org.apache.pivot.wtk.BoxPane;
 import org.apache.pivot.wtk.Button;
+import org.apache.pivot.wtk.Button.State;
 import org.apache.pivot.wtk.ButtonGroup;
 import org.apache.pivot.wtk.ButtonGroupListener;
 import org.apache.pivot.wtk.ButtonPressListener;
+import org.apache.pivot.wtk.ButtonStateListener;
 import org.apache.pivot.wtk.Checkbox;
 import org.apache.pivot.wtk.Component;
 import org.apache.pivot.wtk.DesktopApplicationContext;
@@ -85,6 +88,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private ArrayList<String> errors = new ArrayList<String>();
     private Properties versionProperties = new Properties();
     private String quadVersion = "";
+    private Preferences pref = Preferences.userNodeForPackage(getClass());
     private String mode = "";
     private boolean autoApply = false;
 
@@ -205,12 +209,7 @@ public class QuadUIWindow extends Window implements Bindable {
         browseToConvert.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
-                final FileBrowserSheet browse;
-                if (outputText.getText().equals("")) {
-                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
-                } else {
-                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
-                }
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_raw");
                 browse.setDisabledFileFilter(new Filter<File>() {
 
                     @Override
@@ -232,6 +231,7 @@ public class QuadUIWindow extends Window implements Bindable {
                             if (outputText.getText().contains("")) {
                                 try {
                                     outputText.setText(convertFile.getCanonicalFile().getParent());
+                                    pref.put("last_input_raw", convertFile.getPath());
                                 } catch (IOException ex) {
                                 }
                             }
@@ -247,7 +247,14 @@ public class QuadUIWindow extends Window implements Bindable {
             public void buttonPressed(Button button) {
                 final FileBrowserSheet browse;
                 if (outputText.getText().equals("")) {
-                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO);
+//                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO);
+                    String lastPath = pref.get("last_output", "");
+                    if (lastPath.equals("") || !new File(lastPath).exists()) {
+                        browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO);
+                    } else {
+                        File f = new File(lastPath);
+                        browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO, f.getParent());
+                    }
                 } else {
                     browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO, outputText.getText());
                 }
@@ -257,6 +264,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File outputDir = browse.getSelectedFile();
                             outputText.setText(outputDir.getPath());
+                            pref.put("last_output", outputDir.getPath());
                         }
                     }
                 });
@@ -266,7 +274,7 @@ public class QuadUIWindow extends Window implements Bindable {
         browseLinkFile.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
-                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_link");
                 browse.setDisabledFileFilter(new Filter<File>() {
 
                     @Override
@@ -282,6 +290,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File linkFile = browse.getSelectedFile();
                             linkText.setText(linkFile.getPath());
+                            pref.put("last_input_link", linkFile.getPath());
                             // Disable auto apply when link csv file is provided
                             txtAutoDomeApplyMsg.setText("");
                             autoApply = false;
@@ -294,7 +303,7 @@ public class QuadUIWindow extends Window implements Bindable {
         browseFieldFile.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
-                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_field");
                 browse.setDisabledFileFilter(new Filter<File>() {
 
                     @Override
@@ -310,6 +319,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File fieldFile = browse.getSelectedFile();
                             fieldText.setText(fieldFile.getPath());
+                            pref.put("last_input_field", fieldFile.getPath());
                         }
                     }
                 });
@@ -319,7 +329,7 @@ public class QuadUIWindow extends Window implements Bindable {
         browseStrategyFile.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
-                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_strategy");
                 browse.setDisabledFileFilter(new Filter<File>() {
 
                     @Override
@@ -335,6 +345,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File strategyFile = browse.getSelectedFile();
                             strategyText.setText(strategyFile.getPath());
+                            pref.put("last_input_strategy", strategyFile.getPath());
                         }
                     }
                 });
@@ -371,6 +382,15 @@ public class QuadUIWindow extends Window implements Bindable {
                 }
             }
         });
+        
+        initCheckBox(modelApsim, "last_model_select_apsim");
+        initCheckBox(modelDssat, "last_model_select_dssat");
+        initCheckBox(modelCgnau, "last_model_select_cgnau");
+        initCheckBox(modelStics, "last_model_select_stics");
+        initCheckBox(modelWofost, "last_model_select_wofost");
+        initCheckBox(modelJson, "last_model_select_json");
+        initCheckBox(optionCompress, "last_option_select_compress");
+        initCheckBox(optionOverwrite, "last_option_select_overwrite");
     }
 
     private void startTranslation() throws Exception {
@@ -657,5 +677,33 @@ public class QuadUIWindow extends Window implements Bindable {
 //                ex.printStackTrace();
 //            }
 //        }
+    }
+
+    private FileBrowserSheet openFileBrowserSheet(String lastPathId) {
+        if (outputText.getText().equals("")) {
+            String lastPath = pref.get(lastPathId, "");
+            File tmp = new File(lastPath);
+            if (lastPath.equals("") || !tmp.exists()) {
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
+            } else {
+                if (!tmp.isDirectory()) {
+                    lastPath = tmp.getParentFile().getPath();
+                }
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, lastPath);
+            }
+        } else {
+            return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+        }
+    }
+    
+    private void initCheckBox(Checkbox cb, final String lastSelectId) {
+        cb.setSelected(pref.getBoolean(lastSelectId, false));
+        cb.getButtonStateListeners().add(new ButtonStateListener() {
+
+            @Override
+            public void stateChanged(Button button, State state) {
+                pref.putBoolean(lastSelectId, button.isSelected());
+            }
+        });
     }
 }
