@@ -534,6 +534,9 @@ public class QuadUIWindow extends Window implements Bindable {
             LOG.info("Clean the previous output folders...");
             String outPath = outputText.getText() + File.separator;
             for (String model : models) {
+                if (model.equalsIgnoreCase("JSON")) {
+                    continue;
+                }
                 File dir = new File(outPath + model);
                 if (!Functions.clearDirectory(dir)) {
                     LOG.warn("Failed to clean {} folder since it is being used by other process", model);
