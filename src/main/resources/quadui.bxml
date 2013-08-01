@@ -34,7 +34,10 @@
       <Border styles="{padding:2, color: '#777777'}">
         <BoxPane orientation="vertical" styles="{padding:{bottom:16, left: 6}}">
           <BoxPane orientation="vertical" styles="{padding: 6}">
-            <Label text="File To Convert:" styles="{font:{bold:true}}" />
+            <BoxPane orientation="horizontal">
+              <Label text="Source Data To Convert:" styles="{font:{bold:true}}" />
+              <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="Raw data to be converted to multiple model format" />
+            </BoxPane>
             <BoxPane orientation="horizontal"><TextInput bxml:id="convertText" editable="false"/><PushButton bxml:id="browseConvertButton" buttonData="Browse"/></BoxPane>
           </BoxPane>
           <BoxPane orientation="vertical" styles="{padding:{left: 6}}">
@@ -50,15 +53,24 @@
           </BoxPane>
         </BoxPane>
         <BoxPane orientation="vertical" styles="{padding: 6}">
-          <Label bxml:id="fieldLabel" text="Field Overlay File:" styles="{font:{bold:true}}" enabled="false"/>
+          <BoxPane orientation="horizontal">
+            <Label bxml:id="fieldLabel" text="Field Overlay File:" styles="{font:{bold:true}}" enabled="false"/>
+            <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="This DOME file  provides the data needed by models but missing in the source data" />
+          </BoxPane>
           <BoxPane orientation="horizontal"><TextInput bxml:id="fieldText" editable="false" enabled="false"/><PushButton bxml:id="browseFieldButton" buttonData="Browse" enabled="false"/></BoxPane>
         </BoxPane>
         <BoxPane orientation="vertical" styles="{padding: 6}">
-          <Label bxml:id="strategyLabel" text="Strategy File:" styles="{font:{bold:true}}" enabled="false"/>
+          <BoxPane orientation="horizontal">
+            <Label bxml:id="strategyLabel" text="Strategy File:" styles="{font:{bold:true}}" enabled="false"/>
+            <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="This DOME file setup the multi-season analysis" />
+          </BoxPane>
           <BoxPane orientation="horizontal"><TextInput bxml:id="strategyText" editable="false" enabled="false"/><PushButton bxml:id="browseStrategyButton" buttonData="Browse" enabled="false"/></BoxPane>
         </BoxPane>
         <BoxPane orientation="vertical" styles="{padding: 6}" visible="false">
-          <Label bxml:id="linkLabel" text="DOME Link File:" styles="{font:{bold:true}}" enabled="false"/>
+          <BoxPane orientation="horizontal">
+            <Label bxml:id="linkLabel" text="DOME Link File:" styles="{font:{bold:true}}" enabled="false"/>
+            <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="This DOME file provides linkage between source data and DOMEs" />
+          </BoxPane>
           <BoxPane orientation="horizontal"><TextInput bxml:id="linkText" editable="false" enabled="false"/><PushButton bxml:id="browseLinkButton" buttonData="Browse" enabled="false"/></BoxPane>
         </BoxPane>
         <BoxPane orientation="vertical" styles="{padding: 6}">
@@ -84,8 +96,14 @@
                 <bxml:define>
                   <ButtonGroup bxml:id="outputOptions"/>
                 </bxml:define>
-                <Checkbox bxml:id="option-compress" buttonData="Compress Output"/>
-                <Checkbox bxml:id="option-overwrite" buttonData="Overwrite Previous Output Data"/>
+                <BoxPane orientation="horizontal">
+                  <Checkbox bxml:id="option-compress" buttonData="Compress Output"/>
+                  <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="Generated file will be compressed into a single zip file" />
+                </BoxPane>
+                <BoxPane orientation="horizontal">
+                  <Checkbox bxml:id="option-overwrite" buttonData="Overwrite Previous Output Data"/>
+                  <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="The previous files in the model folder will be replaced with new files" />
+                </BoxPane>
               </BoxPane>
             </Border>
         </BoxPane>
