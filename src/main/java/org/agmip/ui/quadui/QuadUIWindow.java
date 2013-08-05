@@ -281,7 +281,8 @@ public class QuadUIWindow extends Window implements Bindable {
                     public boolean include(File file) {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
-                                && (!file.getName().toLowerCase().endsWith(".zip")));
+                                && (!file.getName().toLowerCase().endsWith(".zip"))
+                                && (!file.getName().toLowerCase().endsWith(".aceb")));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -310,7 +311,8 @@ public class QuadUIWindow extends Window implements Bindable {
                     public boolean include(File file) {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
-                                && (!file.getName().toLowerCase().endsWith(".zip")));
+                                && (!file.getName().toLowerCase().endsWith(".zip"))
+                                && (!file.getName().toLowerCase().endsWith(".aceb")));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -336,7 +338,8 @@ public class QuadUIWindow extends Window implements Bindable {
                     public boolean include(File file) {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
-                                && (!file.getName().toLowerCase().endsWith(".zip")));
+                                && (!file.getName().toLowerCase().endsWith(".zip"))
+                                && (!file.getName().toLowerCase().endsWith(".aceb")));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -403,7 +406,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 String json = new Scanner(new File(convertText.getText()), "UTF-8").useDelimiter("\\A").next();
                 HashMap data = fromJSON(json);
 
-                dumpToAceb(data);
+                dumpToAceb(convertText.getText(), data);
                 if (mode.equals("none")) {
                     toOutput(data);
                 } else {
@@ -439,7 +442,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void taskExecuted(Task<HashMap> t) {
                     HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
-                        dumpToAceb(data);
+                        dumpToAceb(convertText.getText(), data);
                         if (mode.equals("none")) {
                             toOutput(data);
                         } else {
@@ -462,19 +465,25 @@ public class QuadUIWindow extends Window implements Bindable {
         }
     }
 
-    private void dumpToAceb(HashMap map) {
-        txtStatus.setText("Generate ACE Baniry file...");
-        LOG.info("Generate ACE Baniry file...");
-        DumpToAceb task = new DumpToAceb(convertText.getText(), outputText.getText(), map);
+    protected void dumpToAceb(final String filePath, HashMap map) {
+        final String fileName;
+        if (map == null || filePath.toUpperCase().endsWith(".ACEB")) {
+            return;
+        } else {
+            fileName = new File(filePath).getName();
+        }
+        txtStatus.setText("Generate ACE Baniry file for " + fileName + " ...");
+        LOG.info("Generate ACE Baniry file for {} ...", fileName);
+        DumpToAceb task = new DumpToAceb(fileName, outputText.getText(), map);
         TaskListener<String> listener = new TaskListener<String>() {
             @Override
             public void taskExecuted(Task<String> t) {
-                LOG.info("Dump to ACE Binary successfully");
+                LOG.info("Dump to ACE Binary for " + fileName + " successfully");
             }
 
             @Override
             public void executeFailed(Task<String> arg0) {
-                LOG.info("Dump to ACE Binary failed");
+                LOG.info("Dump to ACE Binary for " + fileName + " failed");
                 LOG.error(getStackTrace(arg0.getFault()));
                 Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
             }
@@ -492,6 +501,9 @@ public class QuadUIWindow extends Window implements Bindable {
                 HashMap data = t.getResult();
                 if (!data.containsKey("errors")) {
                     //LOG.error("Domeoutput: {}", data.get("domeoutput"));
+                    dumpToAceb(fieldText.getText(), (HashMap) data.get("ovlDomes"));
+                    dumpToAceb(strategyText.getText(), (HashMap) data.get("stgDomes"));
+                    dumpToAceb(linkText.getText(), (HashMap) data.get("linkDomes"));
                     toOutput((HashMap) data.get("domeoutput"));
                 } else {
                     Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
@@ -664,7 +676,7 @@ public class QuadUIWindow extends Window implements Bindable {
             } catch (IOException ex) {
             }
 
-        } else if (fileName.endsWith(".agmip") || fileName.endsWith(".aceb")) {
+        } else if (fileName.endsWith(".agmip")) { // || fileName.endsWith(".aceb")) {
             msg = "Selected DOME will be Auto applied";
             autoApply = true;
         }
