@@ -2,7 +2,10 @@ package org.agmip.ui.quadui;
 
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.agmip.common.Functions;
@@ -19,7 +22,7 @@ import org.slf4j.LoggerFactory;
 public class TranslateFromTask extends Task<HashMap> {
     private static final Logger LOG = LoggerFactory.getLogger(TranslateFromTask.class);
     private String file;
-    private TranslatorInput translator;
+    private HashMap<String, TranslatorInput> translators = new HashMap<String, TranslatorInput>();
 
     public TranslateFromTask(String file) throws Exception {
         this.file = file;
@@ -29,28 +32,28 @@ public class TranslateFromTask extends Task<HashMap> {
             ZipEntry ze;
             while ((ze = z.getNextEntry()) != null) {
                 if (ze.getName().toLowerCase().endsWith(".csv")) {
-                    translator = new CSVInput();
-                    break;
-                }
+                    translators.put("CSV", new CSVInput());
+//                    break;
+                } else
                 if (ze.getName().toLowerCase().endsWith(".wth")) {
-                    translator = new DssatControllerInput();
-                    break;
-                }
+                    translators.put("DSSAT", new DssatControllerInput());
+//                    break;
+                } else
                 if (ze.getName().toLowerCase().endsWith(".agmip")) {
                     LOG.debug("Found .AgMIP file {}", ze.getName());
-                    translator = new AgmipInput();
-                    break;
+                    translators.put("AgMIP", new AgmipInput());
+//                    break;
                 }
             }
-            if (translator == null) {
-                translator = new DssatControllerInput();
+            if (translators.isEmpty()) {
+                translators.put("DSSAT", new DssatControllerInput());
             }
             z.close();
             f.close();
         } else if (file.toLowerCase().endsWith(".agmip")) {
-            translator = new AgmipInput();
+            translators.put("AgMIP", new AgmipInput());
         } else if (file.toLowerCase().endsWith(".csv")) {
-            translator = new CSVInput();
+            translators.put("CSV", new CSVInput());
         } else { 
             LOG.error("Unsupported file: {}", file);
             throw new Exception("Unsupported file type");
@@ -61,7 +64,10 @@ public class TranslateFromTask extends Task<HashMap> {
     public HashMap<String, Object> execute() {
         HashMap<String, Object> output = new HashMap<String, Object>();
         try {
-            output = (HashMap<String, Object>) translator.readFile(file);
+//            output = (HashMap<String, Object>) translator.readFile(file);
+            for (Iterator<TranslatorInput> it = translators.values().iterator(); it.hasNext();) {
+                combineResult(output, it.next().readFile(file));
+            }
             // Only use in extreme cases
             //LOG.debug("Translate From Results: {}", output.toString());
             return output;
@@ -69,6 +75,22 @@ public class TranslateFromTask extends Task<HashMap> {
             LOG.error(Functions.getStackTrace(ex));
             output.put("errors", ex.toString());
             return output;
+        }
+    }
+    
+    private void combineResult(HashMap out, Map in) {
+        String[] keys = {"experiments", "soils", "weathers"};
+        for (String key : keys) {
+            ArrayList outArr;
+            ArrayList inArr;
+            if ((inArr = (ArrayList) in.get(key)) != null && !inArr.isEmpty()) {
+                outArr = (ArrayList) out.get(key);
+                if (outArr == null) {
+                    out.put(key, inArr);
+                } else {
+                    outArr.addAll(inArr);
+                }
+            } 
         }
     }
 }

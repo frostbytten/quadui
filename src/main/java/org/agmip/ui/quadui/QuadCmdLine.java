@@ -442,6 +442,8 @@ public class QuadCmdLine {
                     String zeName = ze.getName().toLowerCase();
                     if (!zeName.endsWith(".csv")) {
                         autoApply = true;
+                    } else {
+                        autoApply = false;
                         break;
                     }
                 }

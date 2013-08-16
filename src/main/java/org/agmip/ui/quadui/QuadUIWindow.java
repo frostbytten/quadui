@@ -669,6 +669,9 @@ public class QuadUIWindow extends Window implements Bindable {
                     if (!zeName.endsWith(".csv")) {
                         msg = "Selected DOME will be Auto applied";
                         autoApply = true;
+                    } else {
+                        msg = "";
+                        autoApply = false;
                         break;
                     }
                 }
