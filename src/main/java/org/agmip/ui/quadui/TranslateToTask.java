@@ -131,7 +131,7 @@ public class TranslateToTask extends Task<String> {
         File originalDestDir = new File(basePath+File.separator+model);
         File destDirectory = originalDestDir;
         int i=0;
-        while (destDirectory.exists()) {
+        while (destDirectory.exists() && destDirectory.listFiles().length > 0) {
             i++;
             destDirectory = new File(originalDestDir.toString()+"-"+i);
         }
