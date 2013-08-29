@@ -4,7 +4,6 @@ import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -65,8 +64,11 @@ public class TranslateFromTask extends Task<HashMap> {
         HashMap<String, Object> output = new HashMap<String, Object>();
         try {
 //            output = (HashMap<String, Object>) translator.readFile(file);
-            for (Iterator<TranslatorInput> it = translators.values().iterator(); it.hasNext();) {
-                combineResult(output, it.next().readFile(file));
+            for (String key : translators.keySet()) {
+                LOG.info("{} translator is fired to read source data package", key);
+                Map m = translators.get(key).readFile(file);
+                combineResult(output, m);
+                LOG.debug("{}", output.get("weathers"));
             }
             // Only use in extreme cases
             //LOG.debug("Translate From Results: {}", output.toString());
