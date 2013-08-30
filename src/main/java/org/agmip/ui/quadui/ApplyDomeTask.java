@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Scanner;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
@@ -297,6 +298,22 @@ public class ApplyDomeTask extends Task<HashMap> {
             log.debug("Domes: {}", stgDomes.toString());
             log.debug("Entering Strategy mode!");
 
+            if (!noExpMode) {
+                updateWthReferences(updateExpReferences(true));
+                flattenedData = MapUtil.flatPack(source);
+            }
+            int cnt = 0;
+            for (HashMap<String, Object> entry : MapUtil.getRawPackageContents(source, "experiments")) {
+
+                log.debug("Exp at {}: {}, {}",
+                        cnt,
+                        entry.get("wst_id"),
+                        entry.get("clim_id"),
+                        ((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).get("wst_id"),
+                        ((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).get("clim_id")
+                        );
+                cnt++;
+            }
             String stgDomeName = "";
             if (autoApply) {
                 for (String domeName : stgDomes.keySet()) {
@@ -336,6 +353,15 @@ public class ApplyDomeTask extends Task<HashMap> {
                         entry.put("dome_applied", "Y");
                         entry.put("seasonal_dome_applied", "Y");
                         generatorEngine = new Engine(stgDomes.get(strategyName), true);
+                        if (!noExpMode) {
+                            // Check if there is no weather or soil data matched with experiment
+                            if (((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).isEmpty()) {
+                                log.warn("No scenario weather data found for: [{}]", MapUtil.getValueOr(entry, "exname", "N/A"));
+                            }
+                            if (((HashMap) MapUtil.getObjectOr(entry, "soil", new HashMap())).isEmpty()) {
+                                log.warn("No soil data found for:    [{}]", MapUtil.getValueOr(entry, "exname", "N/A"));
+                            }
+                        }
                         ArrayList<HashMap<String, Object>> newEntries = generatorEngine.applyStg(flatSoilAndWthData(entry, noExpMode));
                         log.debug("New Entries to add: {}", newEntries.size());
                         strategyResults.addAll(newEntries);
@@ -357,6 +383,15 @@ public class ApplyDomeTask extends Task<HashMap> {
             }
         }
 
+        if (!noExpMode) {
+            if (mode.equals("strategy")) {
+                updateExpReferences(false);
+            } else {
+                updateWthReferences(updateExpReferences(false));
+            }
+            flattenedData = MapUtil.flatPack(source);
+        }
+
         String ovlDomeName = "";
         if (autoApply) {
             for (String domeName : ovlDomes.keySet()) {
@@ -365,8 +400,15 @@ public class ApplyDomeTask extends Task<HashMap> {
             log.info("Auto apply field overlay: {}", ovlDomeName);
         }
 
+        int cnt = 0;
         for (HashMap<String, Object> entry : flattenedData) {
 
+            log.debug("Exp at {}: {}, {}, {}",
+                    cnt,
+                    entry.get("wst_id"),
+                    ((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).get("wst_id"),
+                    ((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).get("clim_id"));
+            cnt++;
             if (autoApply) {
                 entry.put("field_overlay", ovlDomeName);
             }
@@ -393,6 +435,15 @@ public class ApplyDomeTask extends Task<HashMap> {
                         ArrayList<String> strategyList = domeEngine.getGenerators();
                         if (!strategyList.isEmpty()) {
                             log.warn("The following DOME commands in the field overlay file are ignored : {}", strategyList.toString());
+                        }
+                        if (!noExpMode && !mode.equals("strategy")) {
+                            // Check if there is no weather or soil data matched with experiment
+                            if (((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).isEmpty()) {
+                                log.warn("No baseline weather data found for: [{}]", MapUtil.getValueOr(entry, "exname", "N/A"));
+                            }
+                            if (((HashMap) MapUtil.getObjectOr(entry, "soil", new HashMap())).isEmpty()) {
+                                log.warn("No soil data found for:    [{}]", MapUtil.getValueOr(entry, "exname", "N/A"));
+                            }
                         }
                     } else {
                         log.error("Cannot find overlay: {}", tmpDomeId);
@@ -453,6 +504,120 @@ public class ApplyDomeTask extends Task<HashMap> {
             data.put(failKey, failId);
         } else {
             data.put(failKey, failIds + "|" + failId);
+        }
+    }
+    
+    private boolean updateExpReferences(boolean isStgDome) {
+        
+        ArrayList<HashMap<String, Object>> expArr = MapUtil.getRawPackageContents(source, "experiments");
+        boolean isClimIDchanged = false;
+        
+        HashMap<String, HashMap<String, Object>> domes;
+        String linkid;
+        String domeKey;
+        int maxDomeNum;
+        if (isStgDome) {
+            domes = stgDomes;
+            linkid = "strategy";
+            domeKey = "seasonal_strategy";
+            maxDomeNum = 1;
+        } else {
+            domes = ovlDomes;
+            linkid = "field";
+            domeKey = "field_overlay";
+            maxDomeNum = Integer.MAX_VALUE;
+        }
+        
+        // Pre-scan the seasnal DOME to update reference variables
+        String autoDomeName = "";
+        if (autoApply) {
+            for (String domeName : domes.keySet()) {
+                autoDomeName = domeName;
+            }
+        }
+        for (HashMap<String, Object> exp : expArr) {
+            
+            String domeName = getLinkIds(linkid, exp);
+            if (domeName.equals("")) {
+                if (autoApply) {
+                    domeName = autoDomeName;
+                } else {
+                    domeName = MapUtil.getValueOr(exp, domeKey, "");
+                }
+            }
+            
+            if (!domeName.equals("")) {
+                String tmp[] = domeName.split("[|]");
+                int tmpLength = Math.min(tmp.length, maxDomeNum);
+                for (int i = 0; i < tmpLength; i++) {
+                    String tmpDomeId = tmp[i].toUpperCase();
+                    log.debug("Looking for dome_name: {}", tmpDomeId);
+                    if (domes.containsKey(tmpDomeId)) {
+                        log.debug("Found DOME {}", tmpDomeId);
+                        Engine domeEngine = new Engine(domes.get(tmpDomeId));
+                        isClimIDchanged = domeEngine.updateWSRef(exp, isStgDome, mode.equals("strategy"));
+                        // Check if the wst_id is switch to 8-bit long version
+                        String wst_id = MapUtil.getValueOr(exp, "wst_id", "");
+                        if (isStgDome && wst_id.length() < 8) {
+                            exp.put("wst_id", wst_id + "0XXX");
+                            exp.put("clim_id", "0XXX");
+                            isClimIDchanged = true;
+                        }
+                        log.debug("New exp linkage: {}", exp);
+                    }
+                }
+            }
+        }
+        return isClimIDchanged;
+    }
+    
+    private void updateWthReferences(boolean isClimIDchanged) {
+        
+        ArrayList<HashMap<String, Object>> wthArr = MapUtil.getRawPackageContents(source, "weathers");
+        boolean isStrategy = mode.equals("strategy");
+        HashMap<String, HashMap> unfixedWths = new HashMap();
+        HashSet<String> fixedWths = new HashSet();
+        for (HashMap<String, Object> wth : wthArr) {
+            String wst_id = MapUtil.getValueOr(wth, "wst_id", "");
+            String clim_id = MapUtil.getValueOr(wth, "clim_id", "");
+            if (clim_id.equals("")) {
+                if (wst_id.length() == 8) {
+                    clim_id = wst_id.substring(4, 8);
+                } else {
+                    clim_id = "0XXX";
+                }
+            }
+            // If user assign CLIM_ID in the DOME, or find non-baseline data in the overlay mode, then switch WST_ID to 8-bit version
+            if (isStrategy || isClimIDchanged || !clim_id.startsWith("0")) {
+                if (wst_id.length() < 8) {
+                    wth.put("wst_id", wst_id + clim_id);
+                }
+            } else {
+                // Temporally switch all the WST_ID to 8-bit in the data set
+                if (wst_id.length() < 8) {
+                    wth.put("wst_id", wst_id + clim_id);
+                } else {
+                    wst_id = wst_id.substring(0, 4);
+                }
+                // Check if there is multiple baseline record for one site
+                if (unfixedWths.containsKey(wst_id)) {
+                    log.warn("There is multiple baseline weather data for site [{}], please choose a particular baseline via field overlay DOME", wst_id);
+                    unfixedWths.remove(wst_id);
+                    fixedWths.add(wst_id);
+                    
+                } else {
+                    if (!fixedWths.contains(wst_id)) {
+                        unfixedWths.put(wst_id, wth);
+                    }
+                }
+            }
+        }
+        
+        // If no CLIM_ID provided in the overlay mode, then switch the baseline WST_ID to 4-bit.
+        if (!isStrategy && !unfixedWths.isEmpty()) {
+            for (String wst_id : unfixedWths.keySet()) {
+                unfixedWths.get(wst_id).put("wst_id", wst_id);
+            }
         }
     }
 }
