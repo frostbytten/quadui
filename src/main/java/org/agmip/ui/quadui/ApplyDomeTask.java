@@ -302,18 +302,18 @@ public class ApplyDomeTask extends Task<HashMap> {
                 updateWthReferences(updateExpReferences(true));
                 flattenedData = MapUtil.flatPack(source);
             }
-            int cnt = 0;
-            for (HashMap<String, Object> entry : MapUtil.getRawPackageContents(source, "experiments")) {
-
-                log.debug("Exp at {}: {}, {}",
-                        cnt,
-                        entry.get("wst_id"),
-                        entry.get("clim_id"),
-                        ((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).get("wst_id"),
-                        ((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).get("clim_id")
-                        );
-                cnt++;
-            }
+//            int cnt = 0;
+//            for (HashMap<String, Object> entry : MapUtil.getRawPackageContents(source, "experiments")) {
+//
+//                log.debug("Exp at {}: {}, {}",
+//                        cnt,
+//                        entry.get("wst_id"),
+//                        entry.get("clim_id"),
+//                        ((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).get("wst_id"),
+//                        ((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).get("clim_id")
+//                        );
+//                cnt++;
+//            }
             String stgDomeName = "";
             if (autoApply) {
                 for (String domeName : stgDomes.keySet()) {
