@@ -91,12 +91,13 @@ public class ApplyDomeTask extends Task<HashMap> {
                 log.debug("Entering single CSV file DOME handling");
                 DomeInput translator = new DomeInput();
                 linkDomes = (HashMap<String, Object>) translator.readFile(fileName);
-            } else if (fileNameTest.endsWith(".ACEB")) {
-                log.debug("Entering single ACEB file DOME handling");
-                ObjectMapper mapper = new ObjectMapper();
-                String json = new Scanner(new GZIPInputStream(new FileInputStream(fileName)), "UTF-8").useDelimiter("\\A").next();
-                linkDomes = mapper.readValue(json, new TypeReference<HashMap<String, Object>>() {});
             }
+//            else if (fileNameTest.endsWith(".ACEB")) {
+//                log.debug("Entering single ACEB file DOME handling");
+//                ObjectMapper mapper = new ObjectMapper();
+//                String json = new Scanner(new GZIPInputStream(new FileInputStream(fileName)), "UTF-8").useDelimiter("\\A").next();
+//                linkDomes = mapper.readValue(json, new TypeReference<HashMap<String, Object>>() {});
+//            }
 
             if (linkDomes != null) {
                 log.debug("link info: {}", linkDomes.toString());
@@ -231,7 +232,13 @@ public class ApplyDomeTask extends Task<HashMap> {
                 ObjectMapper mapper = new ObjectMapper();
                 String json = new Scanner(new GZIPInputStream(new FileInputStream(fileName)), "UTF-8").useDelimiter("\\A").next();
                 HashMap<String, HashMap<String, Object>> tmp = mapper.readValue(json, new TypeReference<HashMap<String, HashMap<String, Object>>>() {});
-                domes.putAll(tmp);
+//                domes.putAll(tmp);
+                for (HashMap dome : tmp.values()) {
+                    String domeName = DomeUtil.generateDomeName(dome);
+                    if (!domeName.equals("----")) {
+                        domes.put(domeName, new HashMap<String, Object>(dome));
+                    }
+                }
                 log.debug("Domes layout: {}", domes.toString());
             } catch (Exception ex) {
                 log.error("Error processing DOME file: {}", ex.getMessage());

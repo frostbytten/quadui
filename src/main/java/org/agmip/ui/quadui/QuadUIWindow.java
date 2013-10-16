@@ -1,12 +1,8 @@
 package org.agmip.ui.quadui;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.io.Writer;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -17,14 +13,15 @@ import java.util.prefs.Preferences;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.agmip.ace.AceDataset;
-import org.agmip.ace.io.AceGenerator;
+import org.agmip.ace.AceExperiment;
+import org.agmip.ace.AceSoil;
+import org.agmip.ace.AceWeather;
 import org.agmip.ace.io.AceParser;
 import org.agmip.common.Functions;
+import org.agmip.util.JSONAdapter;
 import static org.agmip.util.JSONAdapter.*;
-import org.apache.pivot.beans.BXMLSerializer;
 import org.apache.pivot.beans.Bindable;
 import org.apache.pivot.collections.Map;
-import org.apache.pivot.serialization.SerializationException;
 import org.apache.pivot.util.Filter;
 import org.apache.pivot.util.Resources;
 import org.apache.pivot.util.concurrent.Task;
@@ -282,7 +279,8 @@ public class QuadUIWindow extends Window implements Bindable {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
                                 && (!file.getName().toLowerCase().endsWith(".zip"))
-                                && (!file.getName().toLowerCase().endsWith(".aceb")));
+//                                && (!file.getName().toLowerCase().endsWith(".aceb"))
+                                );
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -385,7 +383,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 }
             }
         });
-        
+
         initCheckBox(modelApsim, "last_model_select_apsim");
         initCheckBox(modelDssat, "last_model_select_dssat");
         initCheckBox(modelCgnau, "last_model_select_cgnau");
@@ -406,9 +404,9 @@ public class QuadUIWindow extends Window implements Bindable {
                 String json = new Scanner(new File(convertText.getText()), "UTF-8").useDelimiter("\\A").next();
                 HashMap data = fromJSON(json);
 
-                dumpToAceb(convertText.getText(), data);
+                dumpToAceb(data);
                 if (mode.equals("none")) {
-                    toOutput(data);
+                    toOutput(data, null);
                 } else {
                     LOG.info("Attempting to apply a new DOME");
                     applyDome(data, mode);
@@ -419,14 +417,43 @@ public class QuadUIWindow extends Window implements Bindable {
         } else if (convertText.getText().endsWith(".aceb")) {
             try {
                 // Load the ACE Binay file into memory and transform it to old JSON format and send it down the line.
-                AceDataset acebData = AceParser.parseACEB(new File(convertText.getText()));
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                AceGenerator.generate(baos, acebData, false);
-                HashMap data = fromJSON(baos.toString());
-                baos.close();
+                AceDataset ace = AceParser.parseACEB(new File(convertText.getText()));
+                ace.linkDataset();
+//                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+//                AceGenerator.generate(baos, acebData, false);
+//                HashMap data = fromJSON(baos.toString());
+//                baos.close();
+                
+                HashMap data = new HashMap();
+                ArrayList<HashMap> arr;
+                // Experiments
+                arr = new ArrayList();
+                for (AceExperiment exp : ace.getExperiments()) {
+                    arr.add(JSONAdapter.fromJSON(new String(exp.rebuildComponent())));
+                }
+                if (!arr.isEmpty()) {
+                    data.put("experiments", arr);
+                }
+                // Soils
+                arr = new ArrayList();
+                for (AceSoil soil : ace.getSoils()) {
+                    arr.add(JSONAdapter.fromJSON(new String(soil.rebuildComponent())));
+                }
+                if (!arr.isEmpty()) {
+                    data.put("soils", arr);
+                }
+                // Weathers
+                arr = new ArrayList();
+                for (AceWeather wth : ace.getWeathers()) {
+                    arr.add(JSONAdapter.fromJSON(new String(wth.rebuildComponent())));
+                }
+                if (!arr.isEmpty()) {
+                    data.put("weathers", arr);
+                }
+                ace = null;
 
                 if (mode.equals("none")) {
-                    toOutput(data);
+                    toOutput(data, null);
                 } else {
                     LOG.info("Attempting to apply a new DOME");
                     applyDome(data, mode);
@@ -442,9 +469,9 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void taskExecuted(Task<HashMap> t) {
                     HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
-                        dumpToAceb(convertText.getText(), data);
+                        dumpToAceb(data);
                         if (mode.equals("none")) {
-                            toOutput(data);
+                            toOutput(data, null);
                         } else {
                             applyDome(data, mode);
                         }
@@ -465,30 +492,90 @@ public class QuadUIWindow extends Window implements Bindable {
         }
     }
 
-    protected void dumpToAceb(final String filePath, HashMap map) {
-        final String fileName;
-        if (map == null || filePath.toUpperCase().endsWith(".ACEB")) {
-            return;
-        } else {
-            fileName = new File(filePath).getName();
+    protected void dumpToAceb(HashMap map) {
+        dumpToAceb(map, false);
+    }
+
+    protected void dumpToAceb(HashMap map, final boolean isDome) {
+        if (!isDome) {
+            generateId(map);
         }
-        txtStatus.setText("Generate ACE Baniry file for " + fileName + " ...");
-        LOG.info("Generate ACE Baniry file for {} ...", fileName);
-        DumpToAceb task = new DumpToAceb(fileName, outputText.getText(), map);
-        TaskListener<String> listener = new TaskListener<String>() {
+        String filePath = convertText.getText();
+        final String fileName = new File(filePath).getName();
+        final HashMap result = (HashMap) map.get("domeoutput");
+        boolean isSkipped = false;
+        if (map == null || (!isDome && filePath.toUpperCase().endsWith(".ACEB"))) {
+            return;
+        } else if (isDome && fieldText.getText().toUpperCase().endsWith(".ACEB") && strategyText.getText().toUpperCase().endsWith(".ACEB")) {
+            isSkipped = true;
+        }
+        if (isSkipped) {
+            txtStatus.setText("Skip generating ACE Baniry file for DOMEs applied for " + fileName + " ...");
+            LOG.info("Skip generating ACE Baniry file for DOMEs applied for {} ...", fileName);
+        } else if (isDome) {
+            txtStatus.setText("Generate ACE Baniry file for DOMEs applied for " + fileName + " ...");
+            LOG.info("Generate ACE Baniry file for DOMEs applied for {} ...", fileName);
+        } else {
+            txtStatus.setText("Generate ACE Baniry file for " + fileName + " ...");
+            LOG.info("Generate ACE Baniry file for {} ...", fileName);
+        }
+        DumpToAceb task = new DumpToAceb(filePath, outputText.getText(), map, isDome, isSkipped);
+        TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
-            public void taskExecuted(Task<String> t) {
-                LOG.info("Dump to ACE Binary for " + fileName + " successfully");
+            public void taskExecuted(Task<HashMap<String, String>> t) {
+                LOG.info("Dump to ACE Binary for {} successfully", fileName);
+                if (isDome) {
+                    toOutput(result, t.getResult());
+                }
             }
 
             @Override
-            public void executeFailed(Task<String> arg0) {
-                LOG.info("Dump to ACE Binary for " + fileName + " failed");
+            public void executeFailed(Task<HashMap<String, String>> arg0) {
+                LOG.info("Dump to ACE Binary for {} failed", fileName);
                 LOG.error(getStackTrace(arg0.getFault()));
                 Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                if (isDome) {
+                    toOutput(result, null);
+                }
             }
         };
-        task.execute(new TaskAdapter<String>(listener));
+        task.execute(new TaskAdapter<HashMap<String, String>>(listener));
+    }
+    
+    private void generateId(HashMap data) {
+        try {
+            String json = toJSON(data);
+            data.clear();
+            AceDataset ace = AceParser.parse(json);
+            ace.linkDataset();
+            ArrayList<HashMap> arr;
+            // Experiments
+            arr = new ArrayList();
+            for (AceExperiment exp : ace.getExperiments()) {
+                arr.add(JSONAdapter.fromJSON(new String(exp.rebuildComponent())));
+            }
+            if (!arr.isEmpty()) {
+                data.put("experiments", arr);
+            }
+            // Soils
+            arr = new ArrayList();
+            for (AceSoil soil : ace.getSoils()) {
+                arr.add(JSONAdapter.fromJSON(new String(soil.rebuildComponent())));
+            }
+            if (!arr.isEmpty()) {
+                data.put("soils", arr);
+            }
+            // Weathers
+            arr = new ArrayList();
+            for (AceWeather wth : ace.getWeathers()) {
+                arr.add(JSONAdapter.fromJSON(new String(wth.rebuildComponent())));
+            }
+            if (!arr.isEmpty()) {
+                data.put("weathers", arr);
+            }
+        } catch (IOException e) {
+            LOG.warn(Functions.getStackTrace(e));
+        }
     }
 
     private void applyDome(HashMap map, String mode) {
@@ -501,10 +588,11 @@ public class QuadUIWindow extends Window implements Bindable {
                 HashMap data = t.getResult();
                 if (!data.containsKey("errors")) {
                     //LOG.error("Domeoutput: {}", data.get("domeoutput"));
-                    dumpToAceb(fieldText.getText(), (HashMap) data.get("ovlDomes"));
-                    dumpToAceb(strategyText.getText(), (HashMap) data.get("stgDomes"));
-                    dumpToAceb(linkText.getText(), (HashMap) data.get("linkDomes"));
-                    toOutput((HashMap) data.get("domeoutput"));
+                    dumpToAceb(data, true);
+//                    dumpToAceb(fieldText.getText(), (HashMap) data.get("ovlDomes"));
+//                    dumpToAceb(strategyText.getText(), (HashMap) data.get("stgDomes"));
+//                    dumpToAceb(linkText.getText(), (HashMap) data.get("linkDomes"));
+//                    toOutput((HashMap) data.get("domeoutput"));
                 } else {
                     Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
                     enableConvertIndicator(false);
@@ -521,7 +609,36 @@ public class QuadUIWindow extends Window implements Bindable {
         task.execute(new TaskAdapter<HashMap>(listener));
     }
 
-    private void toOutput(HashMap map) {
+    private void toOutput(HashMap map, HashMap<String, String> domeIdHashMap) {
+        
+        // ********************** DEUBG ************************
+//        try {
+//            AceDataset ace = AceParser.parse(toJSON(map));
+//            File f = new File(outputText.getText() + "/" + mode + "_ace.txt");
+//            FileWriter fw = new FileWriter(f);
+//            for (AceExperiment exp : ace.getExperiments()) {
+//                fw.append(exp.getValueOr("exname", "N/A"));
+//                fw.append("\t");
+//                fw.append(exp.getId());
+//                fw.append("\r\n");
+//            }
+//            for (AceSoil soil : ace.getSoils()) {
+//                fw.append(soil.getValueOr("soil_id", "N/A"));
+//                fw.append("\t");
+//                fw.append(soil.getId());
+//                fw.append("\r\n");
+//            }
+//            for (AceWeather wth : ace.getWeathers()) {
+//                fw.append(wth.getValueOr("wst_id", "N/A"));
+//                fw.append("\t");
+//                fw.append(wth.getId());
+//                fw.append("\r\n");
+//            }
+//            fw.flush();
+//            fw.close();
+//        } catch (IOException e) {
+//        }
+        // ********************** DEUBG ************************
         txtStatus.setText("Generating model input files...");
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {
@@ -599,12 +716,12 @@ public class QuadUIWindow extends Window implements Bindable {
                 };
                 task.execute(new TaskAdapter<String>(listener));
             }
-            toOutput2(models, map);
+            toOutput2(models, map, domeIdHashMap);
         }
     }
     
-    private void toOutput2(ArrayList<String> models, HashMap map) {
-        TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected());
+    private void toOutput2(ArrayList<String> models, HashMap map, HashMap<String, String> domeIdHashMap) {
+        TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected(), domeIdHashMap);
         TaskListener<String> listener = new TaskListener<String>() {
             @Override
             public void executeFailed(Task<String> arg0) {
@@ -625,10 +742,11 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private static String getStackTrace(Throwable aThrowable) {
-        final Writer result = new StringWriter();
-        final PrintWriter printWriter = new PrintWriter(result);
-        aThrowable.printStackTrace(printWriter);
-        return result.toString();
+//        final Writer result = new StringWriter();
+//        final PrintWriter printWriter = new PrintWriter(result);
+//        aThrowable.printStackTrace(printWriter);
+//        return result.toString();
+        return Functions.getStackTrace(aThrowable);
     }
 
     private void enableLinkFile(boolean enabled) {

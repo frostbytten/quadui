@@ -25,8 +25,6 @@ import org.agmip.translators.wofost.WofostOutputController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.agmip.util.JSONAdapter.toJSON;
-
 public class TranslateToTask extends Task<String> {
 
     private HashMap data;
@@ -34,15 +32,17 @@ public class TranslateToTask extends Task<String> {
     private ArrayList<String> weatherList, soilList;
     private String destDirectory;
     private boolean compress;
+    private HashMap<String, String> domeIdHashMap;
     private static Logger LOG = LoggerFactory.getLogger(TranslateToTask.class);
 
-    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress) {
+    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress, HashMap<String, String> domeIdHashMap) {
         this.data = data;
         this.destDirectory = destDirectory;
         this.translateList = new ArrayList<String>();
         this.weatherList = new ArrayList<String>();
         this.soilList = new ArrayList<String>();
         this.compress = compress;
+        this.domeIdHashMap = domeIdHashMap;
         for (String trType : translateList) {
             if (!trType.equals("JSON")) {
                 this.translateList.add(trType);
@@ -69,7 +69,7 @@ public class TranslateToTask extends Task<String> {
                     // Generate the ACMO here (pre-generation) so we know what
                     // we should get out of everything.
                     File destDir = createModelDestDirectory(destDirectory, tr);
-                    AcmoUtil.writeAcmo(destDir.toString(), data, tr.toLowerCase());
+                    AcmoUtil.writeAcmo(destDir.toString(), data, tr.toLowerCase(), domeIdHashMap);
                     if (data.size() == 1 && data.containsKey("weather")) {
                         LOG.info("Running in weather only mode");
                         submitTask(executor, tr, data, destDir, true, compress);
