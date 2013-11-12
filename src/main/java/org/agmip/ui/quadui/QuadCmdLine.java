@@ -3,12 +3,11 @@ package org.agmip.ui.quadui;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.io.Writer;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Properties;
 import java.util.Scanner;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -19,6 +18,7 @@ import org.agmip.ace.AceWeather;
 import org.agmip.ace.io.AceGenerator;
 import org.agmip.ace.io.AceParser;
 import org.agmip.common.Functions;
+import static org.agmip.common.Functions.getStackTrace;
 import org.agmip.util.JSONAdapter;
 import static org.agmip.util.JSONAdapter.*;
 import org.apache.pivot.util.concurrent.Task;
@@ -51,12 +51,40 @@ public class QuadCmdLine {
     private String outputPath = null;
     private ArrayList<String> models = new ArrayList();
     private boolean helpFlg = false;
+    private boolean isOverwrite = false;
+    private boolean isCompressed = false;
+    private Properties versionProperties = new Properties();
+    private String quadVersion = "";
+    
+    public QuadCmdLine() {
+        try {
+            InputStream versionFile = getClass().getClassLoader().getResourceAsStream("product.properties");
+            versionProperties.load(versionFile);
+            versionFile.close();
+            StringBuilder qv = new StringBuilder();
+            String buildType = versionProperties.getProperty("product.buildtype").toString();
+            qv.append("Version ");
+            qv.append(versionProperties.getProperty("product.version").toString());
+            qv.append("-").append(versionProperties.getProperty("product.buildversion").toString());
+            qv.append("(").append(buildType).append(")");
+            if (buildType.equals("dev")) {
+                qv.append(" [").append(versionProperties.getProperty("product.buildts")).append("]");
+            }
+            quadVersion = qv.toString();
+        } catch (IOException ex) {
+            LOG.error("Unable to load version information, version will be blank.");
+        }
+    }
 
     public void run(String[] args) {
 
+        LOG.info("QuadUI {} lauched with JAVA {} under OS {}", quadVersion, System.getProperty("java.runtime.version"), System.getProperty("os.name"));
         readCommand(args);
-        if (!validate()) {
+        if (helpFlg) {
             printHelp();
+            return;
+        } else if (!validate()) {
+            LOG.info("Type -h or -help for arguments info");
             return;
         } else {
             argsInfo();
@@ -73,11 +101,11 @@ public class QuadCmdLine {
 
     private void readCommand(String[] args) {
         int i = 0;
-        int pathNum = 2;
+        int pathNum = 1;
         while (i < args.length && args[i].startsWith("-")) {
             if (args[i].equalsIgnoreCase("-n") || args[i].equalsIgnoreCase("-none")) {
                 mode = DomeMode.NONE;
-                pathNum = 2;
+                pathNum = 1;
             } else if (args[i].equalsIgnoreCase("-f") || args[i].equalsIgnoreCase("-field")) {
                 mode = DomeMode.FIELD;
                 pathNum = 3;
@@ -86,6 +114,7 @@ public class QuadCmdLine {
                 pathNum = 4;
             } else if (args[i].equalsIgnoreCase("-h") || args[i].equalsIgnoreCase("-help")) {
                 helpFlg = true;
+                return;
             } else if (args[i].equalsIgnoreCase("-dssat")) {
                 addModel(Model.DSSAT.toString());
             } else if (args[i].equalsIgnoreCase("-apsim")) {
@@ -98,6 +127,11 @@ public class QuadCmdLine {
                 addModel("CropGrow-NAU");
             } else if (args[i].equalsIgnoreCase("-json")) {
                 addModel(Model.JSON.toString());
+            } else if (args[i].equalsIgnoreCase("-cli")) {
+            } else if (args[i].equalsIgnoreCase("-clean")) {
+                isOverwrite = true;
+            } else if (args[i].equalsIgnoreCase("-zip")) {
+                isCompressed = true;
             } else {
                 if (args[i].contains("D")) {
                     addModel(Model.DSSAT.toString());
@@ -121,17 +155,16 @@ public class QuadCmdLine {
             i++;
         }
         try {
-            if (pathNum > 1) {
+            if (pathNum >= 1) {
                 convertPath = args[i++];
             }
-            if (pathNum > 2) {
+            if (pathNum >= 2) {
                 linkPath = args[i++];
+            }
+            if (pathNum >= 3) {
                 fieldPath = args[i++];
             }
-            if (pathNum > 3) {
-                fieldPath = args[i++];
-            }
-            if (pathNum > 4) {
+            if (pathNum >= 4) {
                 strategyPath = args[i++];
             }
             if (i < args.length) {
@@ -167,7 +200,7 @@ public class QuadCmdLine {
 
         if (mode.equals(DomeMode.NONE)) {
         } else if (mode.equals(DomeMode.FIELD)) {
-            if (!isValidPath(linkPath, true)) {
+            if (!linkPath.equals("") && !isValidPath(linkPath, true)) {
                 LOG.warn("link_path is invalid : " + linkPath);
                 return false;
             } else 
@@ -176,7 +209,7 @@ public class QuadCmdLine {
                 return false;
             }
         } else if (mode.equals(DomeMode.STRATEGY)) {
-            if (!isValidPath(linkPath, true)) {
+            if (!linkPath.equals("") && !isValidPath(linkPath, true)) {
                 LOG.warn("link_path is invalid : " + linkPath);
                 return false;
             } else
@@ -356,7 +389,7 @@ public class QuadCmdLine {
                 data.put("weathers", arr);
             }
         } catch (IOException e) {
-            LOG.warn(Functions.getStackTrace(e));
+            LOG.warn(getStackTrace(e));
         }
     }
 
@@ -386,6 +419,26 @@ public class QuadCmdLine {
     }
 
     private void toOutput(HashMap map, HashMap<String, String> domeIdHashMap) {
+        
+        if (isOverwrite) {
+            LOG.info("Clean the previous output folders...");
+            String outPath;
+            if (outputPath.equals(File.separator)) {
+                outPath = outputPath;
+            } else {
+                outPath = outputPath + File.separator;
+            }
+            
+            for (String model : models) {
+                if (model.equalsIgnoreCase("JSON")) {
+                    continue;
+                }
+                File dir = new File(outPath + model);
+                if (!Functions.clearDirectory(dir)) {
+                    LOG.warn("Failed to clean {} folder since it is being used by other process", model);
+                }
+            }
+        }
         LOG.info("Generating model input files...");
 
         if (models.size() == 1 && models.get(0).equals("JSON")) {
@@ -427,7 +480,7 @@ public class QuadCmdLine {
     }
     
     private void toOutput2(HashMap map, HashMap<String, String> domeIdHashMap) {
-        TranslateToTask task = new TranslateToTask(models, map, outputPath, true, domeIdHashMap);
+        TranslateToTask task = new TranslateToTask(models, map, outputPath, isCompressed, domeIdHashMap);
         TaskListener<String> listener = new TaskListener<String>() {
             @Override
             public void executeFailed(Task<String> arg0) {
@@ -445,36 +498,39 @@ public class QuadCmdLine {
     }
 
     private void printHelp() {
-        if (helpFlg) {
-            System.out.println("\nThe arguments format : <dome_mode_option> <model_option> <convert_path> <link_path> <field_path> <strategy_path> <output_path>");
+        System.out.println("\nThe arguments format : <option_compress> <option_overwrite> <dome_mode_option> <model_option> <convert_path> <link_path> <field_path> <strategy_path> <output_path>");
 //            System.out.println("\nThe arguments format : <dome_mode_option> <model_option> <convert_path> <field_path> <strategy_path> <output_path>");
-            System.out.println("\t<dome_mode_option>");
-            System.out.println("\t\t-n | -none\tRaw Data Only, Default");
-            System.out.println("\t\t-f | -filed\tField Overlay, will require Field Overlay File");
-            System.out.println("\t\t-s | -strategy\tSeasonal Strategy, will require both Field Overlay and Strategy File");
-            System.out.println("\t<model_option>");
-            System.out.println("\t\t-D | -dssat\tDSSAT");
-            System.out.println("\t\t-A | -apsim\tAPSIM");
-            System.out.println("\t\t-S | -stics\tSTICS");
-            System.out.println("\t\t-W | -wofost\tWOFOST");
-            System.out.println("\t\t-C | -cropgrownau\tCropGrow-NAU");
-            System.out.println("\t\t-J | -json\tJSON");
-            System.out.println("\t\t* Could be combined input like -DAJ or -DJ");
-            System.out.println("\t<convert_path>");
-            System.out.println("\t\tThe path for file to be converted");
-            System.out.println("\t<link_path>");
-            System.out.println("\t\tThe path for file to be used for link dome command to data set");
-            System.out.println("\t<field_path>");
-            System.out.println("\t\tThe path for file to be used for field overlay");
-            System.out.println("\t<strategy_path>");
-            System.out.println("\t\tThe path for file to be used for strategy");
-            System.out.println("\t<output_path>");
-            System.out.println("\t\tThe path for output.");
-            System.out.println("\t\t* If not provided, will use convert_path");
-            System.out.println("\n");
-        } else {
-            LOG.info("Type -h or -help for arguments info");
-        }
+        System.out.println("\t<option_compress>");
+        System.out.println("\t\t-zip \tCompress the generated file into zip package.");
+        System.out.println("\t\t\tIf not provide, no compression will be done");
+        System.out.println("\t<option_overwrite>");
+        System.out.println("\t\t-clean \tClean model folder under the selected path.");
+        System.out.println("\t\t\tIf not provide, will choose new folder for particular model if the folder is filled with files.");
+        System.out.println("\t<dome_mode_option>");
+        System.out.println("\t\t-n | -none\tRaw Data Only, Default");
+        System.out.println("\t\t-f | -filed\tField Overlay, will require Field Overlay File");
+        System.out.println("\t\t-s | -strategy\tSeasonal Strategy, will require both Field Overlay and Strategy File");
+        System.out.println("\t<model_option>");
+        System.out.println("\t\t-D | -dssat\tDSSAT");
+        System.out.println("\t\t-A | -apsim\tAPSIM");
+        System.out.println("\t\t-S | -stics\tSTICS");
+        System.out.println("\t\t-W | -wofost\tWOFOST");
+        System.out.println("\t\t-C | -cropgrownau\tCropGrow-NAU");
+        System.out.println("\t\t-J | -json\tJSON");
+        System.out.println("\t\t* Could be combined input like -DAJ or -DJ");
+        System.out.println("\t<convert_path>");
+        System.out.println("\t\tThe path for file to be converted");
+        System.out.println("\t<link_path>");
+        System.out.println("\t\tThe path for file to be used for link dome command to data set");
+        System.out.println("\t\tIf not intend to provide link file, please set it as \"\"");
+        System.out.println("\t<field_path>");
+        System.out.println("\t\tThe path for file to be used for field overlay");
+        System.out.println("\t<strategy_path>");
+        System.out.println("\t\tThe path for file to be used for strategy");
+        System.out.println("\t<output_path>");
+        System.out.println("\t\tThe path for output.");
+        System.out.println("\t\t* If not provided, will use convert_path");
+        System.out.println("\n");
     }
 
     private void argsInfo() {
@@ -485,13 +541,6 @@ public class QuadCmdLine {
         LOG.info("strategyPath:\t" + strategyPath);
         LOG.info("outputPath:\t" + outputPath);
         LOG.info("Models:\t\t" + models);
-    }
-
-    private static String getStackTrace(Throwable aThrowable) {
-        final Writer result = new StringWriter();
-        final PrintWriter printWriter = new PrintWriter(result);
-        aThrowable.printStackTrace(printWriter);
-        return result.toString();
     }
     
     private boolean isAutoDomeApply() {

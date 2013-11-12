@@ -429,6 +429,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 // Experiments
                 arr = new ArrayList();
                 for (AceExperiment exp : ace.getExperiments()) {
+                    exp.getId(true);
                     arr.add(JSONAdapter.fromJSON(new String(exp.rebuildComponent())));
                 }
                 if (!arr.isEmpty()) {
@@ -437,6 +438,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 // Soils
                 arr = new ArrayList();
                 for (AceSoil soil : ace.getSoils()) {
+                    soil.getId(true);
                     arr.add(JSONAdapter.fromJSON(new String(soil.rebuildComponent())));
                 }
                 if (!arr.isEmpty()) {
@@ -445,6 +447,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 // Weathers
                 arr = new ArrayList();
                 for (AceWeather wth : ace.getWeathers()) {
+                    wth.getId(true);
                     arr.add(JSONAdapter.fromJSON(new String(wth.rebuildComponent())));
                 }
                 if (!arr.isEmpty()) {
