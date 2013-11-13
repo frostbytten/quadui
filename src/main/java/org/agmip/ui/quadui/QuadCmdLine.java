@@ -21,6 +21,7 @@ import org.agmip.common.Functions;
 import static org.agmip.common.Functions.getStackTrace;
 import org.agmip.util.JSONAdapter;
 import static org.agmip.util.JSONAdapter.*;
+import org.agmip.util.MapUtil;
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskListener;
 import org.apache.pivot.wtk.TaskAdapter;
@@ -55,7 +56,7 @@ public class QuadCmdLine {
     private boolean isCompressed = false;
     private Properties versionProperties = new Properties();
     private String quadVersion = "";
-    
+
     public QuadCmdLine() {
         try {
             InputStream versionFile = getClass().getClassLoader().getResourceAsStream("product.properties");
@@ -181,7 +182,7 @@ public class QuadCmdLine {
             LOG.error("Path arguments are not enough for selected dome mode");
         }
     }
-    
+
     private void addModel(String model) {
         if (models.indexOf(model) < 0) {
             models.add(model);
@@ -203,8 +204,7 @@ public class QuadCmdLine {
             if (!linkPath.equals("") && !isValidPath(linkPath, true)) {
                 LOG.warn("link_path is invalid : " + linkPath);
                 return false;
-            } else 
-            if (!isValidPath(fieldPath, true)) {
+            } else if (!isValidPath(fieldPath, true)) {
                 LOG.warn("field_path is invalid : " + fieldPath);
                 return false;
             }
@@ -212,8 +212,7 @@ public class QuadCmdLine {
             if (!linkPath.equals("") && !isValidPath(linkPath, true)) {
                 LOG.warn("link_path is invalid : " + linkPath);
                 return false;
-            } else
-            if (!isValidPath(fieldPath, true)) {
+            } else if (!isValidPath(fieldPath, true)) {
                 LOG.warn("field_path is invalid : " + fieldPath);
                 return false;
             } else if (!isValidPath(strategyPath, true)) {
@@ -254,7 +253,37 @@ public class QuadCmdLine {
                 String json = new Scanner(new File(convertPath), "UTF-8").useDelimiter("\\A").next();
                 HashMap data = fromJSON(json);
 
-                dumpToAceb(data);
+                // Check if the data has been applied with DOME.
+                boolean isDomeApplied = false;
+                ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
+                for (HashMap exp : exps) {
+                    if (MapUtil.getValueOr(exp, "dome_applied", "").equals("Y")) {
+                        isDomeApplied = true;
+                        break;
+                    }
+                }
+                if (exps.isEmpty()) {
+                    ArrayList<HashMap> soils = MapUtil.getObjectOr(data, "soils", new ArrayList());
+                    ArrayList<HashMap> weathers = MapUtil.getObjectOr(data, "weathers", new ArrayList());
+                    for (HashMap soil : soils) {
+                        if (MapUtil.getValueOr(soil, "dome_applied", "").equals("Y")) {
+                            isDomeApplied = true;
+                            break;
+                        }
+                    }
+                    if (!isDomeApplied) {
+                        for (HashMap wth : weathers) {
+                            if (MapUtil.getValueOr(wth, "dome_applied", "").equals("Y")) {
+                                isDomeApplied = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                // If it has not been applied with DOME, then dump to ACEB
+                if (!isDomeApplied) {
+                    dumpToAceb(data);
+                }
                 if (mode.equals(DomeMode.NONE)) {
                     toOutput(data, null);
                 } else {
@@ -267,11 +296,40 @@ public class QuadCmdLine {
         } else if (convertPath.endsWith(".aceb")) {
             try {
                 // Load the ACE Binay file into memory and transform it to old JSON format and send it down the line.
-                AceDataset acebData = AceParser.parseACEB(new File(convertPath));
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                AceGenerator.generate(baos, acebData, false);                
-                HashMap data = fromJSON(baos.toString());
-                baos.close();
+                AceDataset ace = AceParser.parseACEB(new File(convertPath));
+                ace.linkDataset();
+//                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+//                AceGenerator.generate(baos, acebData, false);
+//                HashMap data = fromJSON(baos.toString());
+//                baos.close();
+                
+                HashMap data = new HashMap();
+                ArrayList<HashMap> arr;
+                // Experiments
+                arr = new ArrayList();
+                for (AceExperiment exp : ace.getExperiments()) {
+                    arr.add(JSONAdapter.fromJSON(new String(exp.rebuildComponent())));
+                }
+                if (!arr.isEmpty()) {
+                    data.put("experiments", arr);
+                }
+                // Soils
+                arr = new ArrayList();
+                for (AceSoil soil : ace.getSoils()) {
+                    arr.add(JSONAdapter.fromJSON(new String(soil.rebuildComponent())));
+                }
+                if (!arr.isEmpty()) {
+                    data.put("soils", arr);
+                }
+                // Weathers
+                arr = new ArrayList();
+                for (AceWeather wth : ace.getWeathers()) {
+                    arr.add(JSONAdapter.fromJSON(new String(wth.rebuildComponent())));
+                }
+                if (!arr.isEmpty()) {
+                    data.put("weathers", arr);
+                }
+                ace = null;
 
                 if (mode.equals(DomeMode.NONE)) {
                     toOutput(data, null);
@@ -310,13 +368,13 @@ public class QuadCmdLine {
             task.execute(new TaskAdapter<HashMap>(listener));
         }
     }
-    
+
     private void dumpToAceb(HashMap map) {
         dumpToAceb(map, false);
     }
 
     private void dumpToAceb(HashMap map, final boolean isDome) {
-        
+
         if (!isDome) {
             generateId(map);
         }
@@ -356,7 +414,7 @@ public class QuadCmdLine {
         };
         task.execute(new TaskAdapter<HashMap<String, String>>(listener));
     }
-    
+
     private void generateId(HashMap data) {
         try {
             String json = toJSON(data);
@@ -419,7 +477,7 @@ public class QuadCmdLine {
     }
 
     private void toOutput(HashMap map, HashMap<String, String> domeIdHashMap) {
-        
+
         if (isOverwrite) {
             LOG.info("Clean the previous output folders...");
             String outPath;
@@ -428,7 +486,7 @@ public class QuadCmdLine {
             } else {
                 outPath = outputPath + File.separator;
             }
-            
+
             for (String model : models) {
                 if (model.equalsIgnoreCase("JSON")) {
                     continue;
@@ -478,7 +536,7 @@ public class QuadCmdLine {
             toOutput2(map, domeIdHashMap);
         }
     }
-    
+
     private void toOutput2(HashMap map, HashMap<String, String> domeIdHashMap) {
         TranslateToTask task = new TranslateToTask(models, map, outputPath, isCompressed, domeIdHashMap);
         TaskListener<String> listener = new TaskListener<String>() {
@@ -542,7 +600,7 @@ public class QuadCmdLine {
         LOG.info("outputPath:\t" + outputPath);
         LOG.info("Models:\t\t" + models);
     }
-    
+
     private boolean isAutoDomeApply() {
         File convertFile = new File(convertPath);
         String fileName = convertFile.getName().toLowerCase();

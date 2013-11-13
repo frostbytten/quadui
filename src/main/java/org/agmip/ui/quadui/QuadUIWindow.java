@@ -20,6 +20,7 @@ import org.agmip.ace.io.AceParser;
 import org.agmip.common.Functions;
 import org.agmip.util.JSONAdapter;
 import static org.agmip.util.JSONAdapter.*;
+import org.agmip.util.MapUtil;
 import org.apache.pivot.beans.Bindable;
 import org.apache.pivot.collections.Map;
 import org.apache.pivot.util.Filter;
@@ -404,7 +405,37 @@ public class QuadUIWindow extends Window implements Bindable {
                 String json = new Scanner(new File(convertText.getText()), "UTF-8").useDelimiter("\\A").next();
                 HashMap data = fromJSON(json);
 
-                dumpToAceb(data);
+                // Check if the data has been applied with DOME.
+                boolean isDomeApplied = false;
+                ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
+                for (HashMap exp : exps) {
+                    if (MapUtil.getValueOr(exp, "dome_applied", "").equals("Y")) {
+                        isDomeApplied = true;
+                        break;
+                    }
+                }
+                if (exps.isEmpty()) {
+                    ArrayList<HashMap> soils = MapUtil.getObjectOr(data, "soils", new ArrayList());
+                    ArrayList<HashMap> weathers = MapUtil.getObjectOr(data, "weathers", new ArrayList());
+                    for (HashMap soil : soils) {
+                        if (MapUtil.getValueOr(soil, "dome_applied", "").equals("Y")) {
+                            isDomeApplied = true;
+                            break;
+                        }
+                    }
+                    if (!isDomeApplied) {
+                        for (HashMap wth : weathers) {
+                            if (MapUtil.getValueOr(wth, "dome_applied", "").equals("Y")) {
+                                isDomeApplied = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                // If it has not been applied with DOME, then dump to ACEB
+                if (!isDomeApplied) {
+                    dumpToAceb(data);
+                }
                 if (mode.equals("none")) {
                     toOutput(data, null);
                 } else {
@@ -429,7 +460,6 @@ public class QuadUIWindow extends Window implements Bindable {
                 // Experiments
                 arr = new ArrayList();
                 for (AceExperiment exp : ace.getExperiments()) {
-                    exp.getId(true);
                     arr.add(JSONAdapter.fromJSON(new String(exp.rebuildComponent())));
                 }
                 if (!arr.isEmpty()) {
@@ -438,7 +468,6 @@ public class QuadUIWindow extends Window implements Bindable {
                 // Soils
                 arr = new ArrayList();
                 for (AceSoil soil : ace.getSoils()) {
-                    soil.getId(true);
                     arr.add(JSONAdapter.fromJSON(new String(soil.rebuildComponent())));
                 }
                 if (!arr.isEmpty()) {
@@ -447,7 +476,6 @@ public class QuadUIWindow extends Window implements Bindable {
                 // Weathers
                 arr = new ArrayList();
                 for (AceWeather wth : ace.getWeathers()) {
-                    wth.getId(true);
                     arr.add(JSONAdapter.fromJSON(new String(wth.rebuildComponent())));
                 }
                 if (!arr.isEmpty()) {

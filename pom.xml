@@ -14,7 +14,7 @@
         <jdk.version>1.6</jdk.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <product.buildtype>dev</product.buildtype>
-        <product.buildversion>beta10</product.buildversion>
+        <product.buildversion>beta12</product.buildversion>
         <product.buildts>${maven.build.timestamp}</product.buildts>
     </properties>
 
@@ -53,7 +53,7 @@
         <dependency>
             <groupId>org.agmip</groupId>
             <artifactId>agmip-core</artifactId>
-            <version>1.1</version>
+            <version>1.2-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.agmip</groupId>
