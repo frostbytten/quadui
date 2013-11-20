@@ -19,6 +19,7 @@ import org.agmip.ace.io.AceGenerator;
 import org.agmip.ace.io.AceParser;
 import org.agmip.common.Functions;
 import static org.agmip.common.Functions.getStackTrace;
+import org.agmip.translators.dssat.DssatControllerInput;
 import org.agmip.util.JSONAdapter;
 import static org.agmip.util.JSONAdapter.*;
 import org.agmip.util.MapUtil;
@@ -56,6 +57,7 @@ public class QuadCmdLine {
     private boolean isCompressed = false;
     private Properties versionProperties = new Properties();
     private String quadVersion = "";
+    private boolean isFromCRAFT = false;
 
     public QuadCmdLine() {
         try {
@@ -160,7 +162,7 @@ public class QuadCmdLine {
                 convertPath = args[i++];
             }
             if (pathNum >= 2) {
-                linkPath = args[i++];
+                linkPath = args[i++].trim();
             }
             if (pathNum >= 3) {
                 fieldPath = args[i++];
@@ -172,7 +174,11 @@ public class QuadCmdLine {
                 outputPath = args[i];
             } else {
                 try {
-                    outputPath = new File(convertPath).getCanonicalFile().getParent();
+                    if (isFromCRAFT) {
+                        outputPath = new File(convertPath).getCanonicalFile().getParent();
+                    } else {
+                        outputPath = convertPath;
+                    }
                 } catch (IOException ex) {
                     outputPath = null;
                     LOG.error(getStackTrace(ex));
@@ -191,7 +197,7 @@ public class QuadCmdLine {
 
     private boolean validate() {
 
-        if (!isValidPath(convertPath, true)) {
+        if (convertPath == null || !new File(convertPath).exists()) {
             LOG.warn("convert_path is invalid : " + convertPath);
             return false;
         } else if (!isValidPath(outputPath, false)) {
@@ -228,6 +234,14 @@ public class QuadCmdLine {
             LOG.warn("<model_option> is required for running translation");
             return false;
         }
+        
+        isFromCRAFT = new File(convertPath).isDirectory();
+        if (outputPath != null) {
+            File dir = new File(outputPath);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+        }
 
         return true;
     }
@@ -247,7 +261,17 @@ public class QuadCmdLine {
 
     private void startTranslation() throws Exception {
         LOG.info("Importing data...");
-        if (convertPath.endsWith(".json")) {
+        if (isFromCRAFT) {
+            DssatControllerInput in = new DssatControllerInput();
+            HashMap data = in.readFileFromCRAFT(convertPath);
+            
+            if (mode.equals(DomeMode.NONE)) {
+                toOutput(data, null);
+            } else {
+                LOG.debug("Attempting to apply a new DOME");
+                applyDome(data, mode.toString().toLowerCase());
+            }
+        } else if (convertPath.endsWith(".json")) {
             try {
                 // Load the JSON representation into memory and send it down the line.
                 String json = new Scanner(new File(convertPath), "UTF-8").useDelimiter("\\A").next();
@@ -607,6 +631,8 @@ public class QuadCmdLine {
         boolean autoApply = false;
         if (!linkPath.equals("")) {
             autoApply = false;
+        } else if (isFromCRAFT) {
+            autoApply = true;
         } else if (fileName.endsWith(".zip")) {
             try {
                 ZipFile zf = new ZipFile(convertFile);
