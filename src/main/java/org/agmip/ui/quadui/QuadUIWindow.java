@@ -280,7 +280,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
                                 && (!file.getName().toLowerCase().endsWith(".zip"))
-//                                && (!file.getName().toLowerCase().endsWith(".aceb"))
+                                && (!file.getName().toLowerCase().endsWith(".aceb"))
                                 );
                     }
                 });
@@ -535,10 +535,14 @@ public class QuadUIWindow extends Window implements Bindable {
         final String fileName = new File(filePath).getName();
         final HashMap result = (HashMap) map.get("domeoutput");
         boolean isSkipped = false;
+        boolean isSkippedForLink = false;
         if (map == null || (!isDome && filePath.toUpperCase().endsWith(".ACEB"))) {
             return;
         } else if (isDome && fieldText.getText().toUpperCase().endsWith(".ACEB") && strategyText.getText().toUpperCase().endsWith(".ACEB")) {
             isSkipped = true;
+        }
+        if (linkText.getText().toUpperCase().endsWith(".ACEB")) {
+            isSkippedForLink = true;
         }
         if (isSkipped) {
             txtStatus.setText("Skip generating ACE Baniry file for DOMEs applied for " + fileName + " ...");
@@ -550,7 +554,11 @@ public class QuadUIWindow extends Window implements Bindable {
             txtStatus.setText("Generate ACE Baniry file for " + fileName + " ...");
             LOG.info("Generate ACE Baniry file for {} ...", fileName);
         }
-        DumpToAceb task = new DumpToAceb(filePath, outputText.getText(), map, isDome, isSkipped);
+        if (isSkippedForLink) {
+            txtStatus.setText("Skip generating ACE Baniry file for linkage information used for " + fileName + " ...");
+            LOG.info("Skip generating ACE Baniry file for linkage information used for {} ...", fileName);
+        }
+        DumpToAceb task = new DumpToAceb(filePath, outputText.getText(), map, isDome, isSkipped, isSkippedForLink);
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
             public void taskExecuted(Task<HashMap<String, String>> t) {
@@ -828,7 +836,7 @@ public class QuadUIWindow extends Window implements Bindable {
             } catch (IOException ex) {
             }
 
-        } else if (fileName.endsWith(".agmip")) { // || fileName.endsWith(".aceb")) {
+        } else if (!fileName.endsWith(".csv")) {
             msg = "Selected DOME will be Auto applied";
             autoApply = true;
         }

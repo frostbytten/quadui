@@ -19,17 +19,19 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
     private String fileName, directoryName;
     private boolean isDome;
     private boolean isSkipped;
+    private boolean isSkippedForLink;
     private static final HashFunction hf = Hashing.sha256();
     private HashMap domeIdHashMap = new HashMap();
     private HashMap domeHashData = null;
 
-    public DumpToAceb(String file, String dirName, HashMap data, boolean isDome, boolean isSkipped) {
+    public DumpToAceb(String file, String dirName, HashMap data, boolean isDome, boolean isSkipped, boolean isSkippedForLink) {
         this.fileName = file;
         this.directoryName = dirName;
         Cloner cloner = new Cloner();
         this.data = cloner.deepClone(data);
         this.isDome = isDome;
         this.isSkipped = isSkipped;
+        this.isSkippedForLink = isSkippedForLink;
     }
 
     @Override
@@ -53,9 +55,9 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
             count++;
         }
         try {
-            if (!file.exists()) {
-                file.createNewFile();
-            }
+//            if (!file.exists()) {
+//                file.createNewFile();
+//            }
             if (!isDome) {
                 if (!isSkipped) {
                     AceGenerator.generateACEB(file, toJSON(data));
@@ -67,6 +69,14 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
                 buildDomeHash("stgDomes");
                 if (!isSkipped) {
                     AceGenerator.generateACEB(file, toJSON(domeHashData));
+                }
+                if (!isSkippedForLink) {
+                    file = new File(directoryName + "/" + base[0] + "_Linkage.aceb");
+                    HashMap<String, HashMap> linkInfo = MapUtil.getObjectOr(data, "linkDomes", new HashMap());
+                    String hash = generateHCId(linkInfo).toString();
+                    HashMap hashData = new HashMap();
+                    hashData.put(hash, linkInfo);
+                    AceGenerator.generateACEB(file, toJSON(hashData));
                 }
                 domeHashData = null;
                 return domeIdHashMap;

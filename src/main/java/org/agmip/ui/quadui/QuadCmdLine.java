@@ -405,10 +405,14 @@ public class QuadCmdLine {
         final String fileName = new File(convertPath).getName();
         final HashMap result = (HashMap) map.get("domeoutput");
         boolean isSkipped = false;
+        boolean isSkippedForLink = false;
         if (map == null || (!isDome && convertPath.toUpperCase().endsWith(".ACEB"))) {
             return;
         } else if (isDome && fieldPath.toUpperCase().endsWith(".ACEB") && strategyPath.toUpperCase().endsWith(".ACEB")) {
             isSkipped = true;
+        }
+        if (linkPath != null && linkPath.toUpperCase().endsWith(".ACEB")) {
+            isSkippedForLink = true;
         }
         if (isSkipped) {
             LOG.info("Skip generating ACE Baniry file for DOMEs applied for {} ...", fileName);
@@ -417,7 +421,10 @@ public class QuadCmdLine {
         } else {
             LOG.info("Generate ACE Baniry file for {} ...", fileName);
         }
-        DumpToAceb task = new DumpToAceb(convertPath, outputPath, map, isDome, isSkipped);
+        if (isSkippedForLink) {
+            LOG.info("Skip generating ACE Baniry file for linkage information used for {} ...", fileName);
+        }
+        DumpToAceb task = new DumpToAceb(convertPath, outputPath, map, isDome, isSkipped, isSkippedForLink);
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
             public void taskExecuted(Task<HashMap<String, String>> t) {
@@ -651,7 +658,7 @@ public class QuadCmdLine {
             } catch (IOException ex) {
             }
 
-        } else if (fileName.endsWith(".agmip") || fileName.endsWith(".aceb")) {
+        } else if (!fileName.endsWith(".csv")) {
             autoApply = true;
         }
         return autoApply;

@@ -28,6 +28,8 @@ public class ApplyDomeTask extends Task<HashMap> {
     private HashMap<String, Object> linkDomes = new HashMap<String, Object>();
     private HashMap<String, String> ovlLinks = new HashMap<String, String>();
     private HashMap<String, String> stgLinks = new HashMap<String, String>();
+    private HashMap<String, String> orgOvlLinks = new HashMap<String, String>();
+    private HashMap<String, String> orgStgLinks = new HashMap<String, String>();
 //    private HashMap<String, ArrayList<String>> wthLinks = new HashMap<String, ArrayList<String>>();
 //    private HashMap<String, ArrayList<String>> soilLinks = new HashMap<String, ArrayList<String>>();
     private HashMap source;
@@ -176,6 +178,29 @@ public class ApplyDomeTask extends Task<HashMap> {
             linkIds = linkIds.substring(0, linkIds.length() - 1);
         }
         return linkIds;
+    }
+    
+    private void setOriLinkIds(HashMap entry, String domeIds, String domeType) {
+        HashMap<String, String> links;
+        if (domeType.equals("strategy")) {
+            links = orgStgLinks;
+        } else if (domeType.equals("overlay")) {
+            links = orgOvlLinks;
+        } else {
+            return;
+        }
+        String exname = MapUtil.getValueOr(entry, "exname", "");
+        if (!exname.equals("")) {
+            links.put("EXNAME_" + exname, domeIds);
+        } else {
+            String soil_id = MapUtil.getValueOr(entry, "soil_id", "");
+            String wst_id = MapUtil.getValueOr(entry, "wst_id", "");
+            if (!soil_id.equals("")) {
+                links.put("SOIL_ID_" + soil_id, domeIds);
+            } else if (!wst_id.equals("")) {
+                links.put("WST_ID_" + wst_id, domeIds);
+            }
+        }
     }
 
     private void loadDomeFile(String fileName, HashMap<String, HashMap<String, Object>> domes) {
@@ -342,6 +367,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                     log.debug("Apply seasonal strategy domes from link csv: {}", domeName);
                 }
 
+                setOriLinkIds(entry, domeName, "strategy");
                 String tmp[] = domeName.split("[|]");
                 String strategyName;
                 if (tmp.length > 1) {
@@ -466,6 +492,11 @@ public class ApplyDomeTask extends Task<HashMap> {
             output.put("domeoutput", MapUtil.bundle(flattenedData));
         }
         if (linkDomes != null && !linkDomes.isEmpty()) {
+            output.put("linkDomes", linkDomes);
+        } else {
+            linkDomes = new HashMap<String, Object>();
+            linkDomes.put("link_overlay", orgOvlLinks);
+            linkDomes.put("link_stragty", orgStgLinks);
             output.put("linkDomes", linkDomes);
         }
         if (ovlDomes != null && !ovlDomes.isEmpty()) {
