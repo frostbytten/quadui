@@ -174,11 +174,7 @@ public class QuadCmdLine {
                 outputPath = args[i];
             } else {
                 try {
-                    if (isFromCRAFT) {
-                        outputPath = new File(convertPath).getCanonicalFile().getParent();
-                    } else {
-                        outputPath = convertPath;
-                    }
+                    outputPath = new File(convertPath).getCanonicalFile().getParent();
                 } catch (IOException ex) {
                     outputPath = null;
                     LOG.error(getStackTrace(ex));
