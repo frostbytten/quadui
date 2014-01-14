@@ -3,18 +3,24 @@ package org.agmip.ui.quadui;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.io.Writer;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.prefs.Preferences;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceExperiment;
+import org.agmip.ace.AceSoil;
+import org.agmip.ace.AceWeather;
+import org.agmip.ace.io.AceParser;
+import org.agmip.common.Functions;
+import org.agmip.util.JSONAdapter;
 import static org.agmip.util.JSONAdapter.*;
+import org.agmip.util.MapUtil;
 import org.apache.pivot.beans.Bindable;
 import org.apache.pivot.collections.Map;
 import org.apache.pivot.util.Filter;
@@ -26,9 +32,11 @@ import org.apache.pivot.wtk.ActivityIndicator;
 import org.apache.pivot.wtk.Alert;
 import org.apache.pivot.wtk.BoxPane;
 import org.apache.pivot.wtk.Button;
+import org.apache.pivot.wtk.Button.State;
 import org.apache.pivot.wtk.ButtonGroup;
 import org.apache.pivot.wtk.ButtonGroupListener;
 import org.apache.pivot.wtk.ButtonPressListener;
+import org.apache.pivot.wtk.ButtonStateListener;
 import org.apache.pivot.wtk.Checkbox;
 import org.apache.pivot.wtk.Component;
 import org.apache.pivot.wtk.DesktopApplicationContext;
@@ -58,8 +66,11 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox modelApsim = null;
     private Checkbox modelDssat = null;
     private Checkbox modelStics = null;
+    private Checkbox modelWofost = null;
+    private Checkbox modelCgnau = null;
     private Checkbox modelJson = null;
     private Checkbox optionCompress = null;
+    private Checkbox optionOverwrite = null;
     private Label txtStatus = null;
     private Label txtAutoDomeApplyMsg = null;
     private Label txtVersion = null;
@@ -75,6 +86,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private ArrayList<String> errors = new ArrayList<String>();
     private Properties versionProperties = new Properties();
     private String quadVersion = "";
+    private Preferences pref = Preferences.userNodeForPackage(getClass());
     private String mode = "";
     private boolean autoApply = false;
 
@@ -151,17 +163,22 @@ public class QuadUIWindow extends Window implements Bindable {
         modelApsim          = (Checkbox) ns.get("model-apsim");
         modelDssat          = (Checkbox) ns.get("model-dssat");
         modelStics          = (Checkbox) ns.get("model-stics");
+        modelWofost         = (Checkbox) ns.get("model-wofost");
+        modelCgnau          = (Checkbox) ns.get("model-cgnau");
         modelJson           = (Checkbox) ns.get("model-json");
         optionCompress      = (Checkbox) ns.get("option-compress");
+        optionOverwrite      = (Checkbox) ns.get("option-overwrite");
 
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
         checkboxGroup.add(modelStics);
+        checkboxGroup.add(modelWofost);
+        checkboxGroup.add(modelCgnau);
         checkboxGroup.add(modelJson);
 
         outputText.setText("");
         txtVersion.setText(quadVersion);
-        LOG.info("QuadUI {} lauched", quadVersion);
+        LOG.info("QuadUI {} lauched with JAVA {} under OS {}", quadVersion, System.getProperty("java.runtime.version"), System.getProperty("os.name"));
         mode = "none";
 
         convertButton.getButtonPressListeners().add(new ButtonPressListener() {
@@ -190,12 +207,7 @@ public class QuadUIWindow extends Window implements Bindable {
         browseToConvert.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
-                final FileBrowserSheet browse;
-                if (outputText.getText().equals("")) {
-                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
-                } else {
-                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
-                }
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_raw");
                 browse.setDisabledFileFilter(new Filter<File>() {
 
                     @Override
@@ -204,7 +216,8 @@ public class QuadUIWindow extends Window implements Bindable {
                                 && (!file.getName().toLowerCase().endsWith(".csv")
                                 && (!file.getName().toLowerCase().endsWith(".zip")
                                 && (!file.getName().toLowerCase().endsWith(".json")
-                                && (!file.getName().toLowerCase().endsWith(".agmip"))))));
+                                && (!file.getName().toLowerCase().endsWith(".aceb")
+                                && (!file.getName().toLowerCase().endsWith(".agmip")))))));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -216,6 +229,7 @@ public class QuadUIWindow extends Window implements Bindable {
                             if (outputText.getText().contains("")) {
                                 try {
                                     outputText.setText(convertFile.getCanonicalFile().getParent());
+                                    pref.put("last_input_raw", convertFile.getPath());
                                 } catch (IOException ex) {
                                 }
                             }
@@ -231,7 +245,14 @@ public class QuadUIWindow extends Window implements Bindable {
             public void buttonPressed(Button button) {
                 final FileBrowserSheet browse;
                 if (outputText.getText().equals("")) {
-                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO);
+//                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO);
+                    String lastPath = pref.get("last_output", "");
+                    if (lastPath.equals("") || !new File(lastPath).exists()) {
+                        browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO);
+                    } else {
+                        File f = new File(lastPath);
+                        browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO, f.getParent());
+                    }
                 } else {
                     browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO, outputText.getText());
                 }
@@ -241,48 +262,56 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File outputDir = browse.getSelectedFile();
                             outputText.setText(outputDir.getPath());
+                            pref.put("last_output", outputDir.getPath());
                         }
                     }
                 });
             }
         });
 
-//        browseLinkFile.getButtonPressListeners().add(new ButtonPressListener() {
-//            @Override
-//            public void buttonPressed(Button button) {
-//                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
-//                browse.setDisabledFileFilter(new Filter<File>() {
-//
-//                    @Override
-//                    public boolean include(File file) {
-//                        return (file.isFile()
-//                                && (!file.getName().toLowerCase().endsWith(".csv"))
-//                                && (!file.getName().toLowerCase().endsWith(".zip")));
-//                    }
-//                });
-//                browse.open(QuadUIWindow.this, new SheetCloseListener() {
-//                    @Override
-//                    public void sheetClosed(Sheet sheet) {
-//                        if (sheet.getResult()) {
-//                            File linkFile = browse.getSelectedFile();
-//                            linkText.setText(linkFile.getPath());
-//                        }
-//                    }
-//                });
-//            }
-//        });
-
-        browseFieldFile.getButtonPressListeners().add(new ButtonPressListener() {
+        browseLinkFile.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
-                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_link");
                 browse.setDisabledFileFilter(new Filter<File>() {
 
                     @Override
                     public boolean include(File file) {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
-                                && (!file.getName().toLowerCase().endsWith(".zip")));
+                                && (!file.getName().toLowerCase().endsWith(".zip"))
+                                && (!file.getName().toLowerCase().endsWith(".aceb"))
+                                );
+                    }
+                });
+                browse.open(QuadUIWindow.this, new SheetCloseListener() {
+                    @Override
+                    public void sheetClosed(Sheet sheet) {
+                        if (sheet.getResult()) {
+                            File linkFile = browse.getSelectedFile();
+                            linkText.setText(linkFile.getPath());
+                            pref.put("last_input_link", linkFile.getPath());
+                            // Disable auto apply when link csv file is provided
+                            txtAutoDomeApplyMsg.setText("");
+                            autoApply = false;
+                        }
+                    }
+                });
+            }
+        });
+
+        browseFieldFile.getButtonPressListeners().add(new ButtonPressListener() {
+            @Override
+            public void buttonPressed(Button button) {
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_field");
+                browse.setDisabledFileFilter(new Filter<File>() {
+
+                    @Override
+                    public boolean include(File file) {
+                        return (file.isFile()
+                                && (!file.getName().toLowerCase().endsWith(".csv"))
+                                && (!file.getName().toLowerCase().endsWith(".zip"))
+                                && (!file.getName().toLowerCase().endsWith(".aceb")));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -291,6 +320,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File fieldFile = browse.getSelectedFile();
                             fieldText.setText(fieldFile.getPath());
+                            pref.put("last_input_field", fieldFile.getPath());
                         }
                     }
                 });
@@ -300,14 +330,15 @@ public class QuadUIWindow extends Window implements Bindable {
         browseStrategyFile.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
-                final FileBrowserSheet browse = new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, outputText.getText());
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_strategy");
                 browse.setDisabledFileFilter(new Filter<File>() {
 
                     @Override
                     public boolean include(File file) {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
-                                && (!file.getName().toLowerCase().endsWith(".zip")));
+                                && (!file.getName().toLowerCase().endsWith(".zip"))
+                                && (!file.getName().toLowerCase().endsWith(".aceb")));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -316,6 +347,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File strategyFile = browse.getSelectedFile();
                             strategyText.setText(strategyFile.getPath());
+                            pref.put("last_input_strategy", strategyFile.getPath());
                         }
                     }
                 });
@@ -352,6 +384,15 @@ public class QuadUIWindow extends Window implements Bindable {
                 }
             }
         });
+
+        initCheckBox(modelApsim, "last_model_select_apsim");
+        initCheckBox(modelDssat, "last_model_select_dssat");
+        initCheckBox(modelCgnau, "last_model_select_cgnau");
+        initCheckBox(modelStics, "last_model_select_stics");
+        initCheckBox(modelWofost, "last_model_select_wofost");
+        initCheckBox(modelJson, "last_model_select_json");
+        initCheckBox(optionCompress, "last_option_select_compress");
+        initCheckBox(optionOverwrite, "last_option_select_overwrite");
     }
 
     private void startTranslation() throws Exception {
@@ -364,8 +405,86 @@ public class QuadUIWindow extends Window implements Bindable {
                 String json = new Scanner(new File(convertText.getText()), "UTF-8").useDelimiter("\\A").next();
                 HashMap data = fromJSON(json);
 
+                // Check if the data has been applied with DOME.
+                boolean isDomeApplied = false;
+                ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
+                for (HashMap exp : exps) {
+                    if (MapUtil.getValueOr(exp, "dome_applied", "").equals("Y")) {
+                        isDomeApplied = true;
+                        break;
+                    }
+                }
+                if (exps.isEmpty()) {
+                    ArrayList<HashMap> soils = MapUtil.getObjectOr(data, "soils", new ArrayList());
+                    ArrayList<HashMap> weathers = MapUtil.getObjectOr(data, "weathers", new ArrayList());
+                    for (HashMap soil : soils) {
+                        if (MapUtil.getValueOr(soil, "dome_applied", "").equals("Y")) {
+                            isDomeApplied = true;
+                            break;
+                        }
+                    }
+                    if (!isDomeApplied) {
+                        for (HashMap wth : weathers) {
+                            if (MapUtil.getValueOr(wth, "dome_applied", "").equals("Y")) {
+                                isDomeApplied = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                // If it has not been applied with DOME, then dump to ACEB
+                if (!isDomeApplied) {
+                    dumpToAceb(data);
+                }
                 if (mode.equals("none")) {
-                    toOutput(data);
+                    toOutput(data, null);
+                } else {
+                    LOG.info("Attempting to apply a new DOME");
+                    applyDome(data, mode);
+                }
+            } catch (Exception ex) {
+                LOG.error(getStackTrace(ex));
+            }
+        } else if (convertText.getText().endsWith(".aceb")) {
+            try {
+                // Load the ACE Binay file into memory and transform it to old JSON format and send it down the line.
+                AceDataset ace = AceParser.parseACEB(new File(convertText.getText()));
+                ace.linkDataset();
+//                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+//                AceGenerator.generate(baos, acebData, false);
+//                HashMap data = fromJSON(baos.toString());
+//                baos.close();
+                
+                HashMap data = new HashMap();
+                ArrayList<HashMap> arr;
+                // Experiments
+                arr = new ArrayList();
+                for (AceExperiment exp : ace.getExperiments()) {
+                    arr.add(JSONAdapter.fromJSON(new String(exp.rebuildComponent())));
+                }
+                if (!arr.isEmpty()) {
+                    data.put("experiments", arr);
+                }
+                // Soils
+                arr = new ArrayList();
+                for (AceSoil soil : ace.getSoils()) {
+                    arr.add(JSONAdapter.fromJSON(new String(soil.rebuildComponent())));
+                }
+                if (!arr.isEmpty()) {
+                    data.put("soils", arr);
+                }
+                // Weathers
+                arr = new ArrayList();
+                for (AceWeather wth : ace.getWeathers()) {
+                    arr.add(JSONAdapter.fromJSON(new String(wth.rebuildComponent())));
+                }
+                if (!arr.isEmpty()) {
+                    data.put("weathers", arr);
+                }
+                ace = null;
+
+                if (mode.equals("none")) {
+                    toOutput(data, null);
                 } else {
                     LOG.info("Attempting to apply a new DOME");
                     applyDome(data, mode);
@@ -381,8 +500,9 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void taskExecuted(Task<HashMap> t) {
                     HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
+                        dumpToAceb(data);
                         if (mode.equals("none")) {
-                            toOutput(data);
+                            toOutput(data, null);
                         } else {
                             applyDome(data, mode);
                         }
@@ -403,18 +523,115 @@ public class QuadUIWindow extends Window implements Bindable {
         }
     }
 
+    protected void dumpToAceb(HashMap map) {
+        dumpToAceb(map, false);
+    }
+
+    protected void dumpToAceb(HashMap map, final boolean isDome) {
+        if (!isDome) {
+            generateId(map);
+        }
+        String filePath = convertText.getText();
+        final String fileName = new File(filePath).getName();
+        final HashMap result = (HashMap) map.get("domeoutput");
+        boolean isSkipped = false;
+        boolean isSkippedForLink = false;
+        if (map == null || (!isDome && filePath.toUpperCase().endsWith(".ACEB"))) {
+            return;
+        } else if (isDome && fieldText.getText().toUpperCase().endsWith(".ACEB") && strategyText.getText().toUpperCase().endsWith(".ACEB")) {
+            isSkipped = true;
+        }
+        if (linkText.getText().toUpperCase().endsWith(".ACEB")) {
+            isSkippedForLink = true;
+        }
+        if (isSkipped) {
+            txtStatus.setText("Skip generating ACE Baniry file for DOMEs applied for " + fileName + " ...");
+            LOG.info("Skip generating ACE Baniry file for DOMEs applied for {} ...", fileName);
+        } else if (isDome) {
+            txtStatus.setText("Generate ACE Baniry file for DOMEs applied for " + fileName + " ...");
+            LOG.info("Generate ACE Baniry file for DOMEs applied for {} ...", fileName);
+        } else {
+            txtStatus.setText("Generate ACE Baniry file for " + fileName + " ...");
+            LOG.info("Generate ACE Baniry file for {} ...", fileName);
+        }
+        if (isSkippedForLink) {
+            txtStatus.setText("Skip generating ACE Baniry file for linkage information used for " + fileName + " ...");
+            LOG.info("Skip generating ACE Baniry file for linkage information used for {} ...", fileName);
+        }
+        DumpToAceb task = new DumpToAceb(filePath, outputText.getText(), map, isDome, isSkipped, isSkippedForLink);
+        TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
+            @Override
+            public void taskExecuted(Task<HashMap<String, String>> t) {
+                LOG.info("Dump to ACE Binary for {} successfully", fileName);
+                if (isDome) {
+                    toOutput(result, t.getResult());
+                }
+            }
+
+            @Override
+            public void executeFailed(Task<HashMap<String, String>> arg0) {
+                LOG.info("Dump to ACE Binary for {} failed", fileName);
+                LOG.error(getStackTrace(arg0.getFault()));
+                Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                if (isDome) {
+                    toOutput(result, null);
+                }
+            }
+        };
+        task.execute(new TaskAdapter<HashMap<String, String>>(listener));
+    }
+    
+    private void generateId(HashMap data) {
+        try {
+            String json = toJSON(data);
+            data.clear();
+            AceDataset ace = AceParser.parse(json);
+            ace.linkDataset();
+            ArrayList<HashMap> arr;
+            // Experiments
+            arr = new ArrayList();
+            for (AceExperiment exp : ace.getExperiments()) {
+                arr.add(JSONAdapter.fromJSON(new String(exp.rebuildComponent())));
+            }
+            if (!arr.isEmpty()) {
+                data.put("experiments", arr);
+            }
+            // Soils
+            arr = new ArrayList();
+            for (AceSoil soil : ace.getSoils()) {
+                arr.add(JSONAdapter.fromJSON(new String(soil.rebuildComponent())));
+            }
+            if (!arr.isEmpty()) {
+                data.put("soils", arr);
+            }
+            // Weathers
+            arr = new ArrayList();
+            for (AceWeather wth : ace.getWeathers()) {
+                arr.add(JSONAdapter.fromJSON(new String(wth.rebuildComponent())));
+            }
+            if (!arr.isEmpty()) {
+                data.put("weathers", arr);
+            }
+        } catch (IOException e) {
+            LOG.warn(Functions.getStackTrace(e));
+        }
+    }
+
     private void applyDome(HashMap map, String mode) {
         txtStatus.setText("Applying DOME...");
         LOG.info("Applying DOME...");
-//        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map);
-        ApplyDomeTask task = new ApplyDomeTask(fieldText.getText(), strategyText.getText(), mode, map, autoApply);
+        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map, autoApply);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
             public void taskExecuted(Task<HashMap> t) {
                 HashMap data = t.getResult();
                 if (!data.containsKey("errors")) {
                     //LOG.error("Domeoutput: {}", data.get("domeoutput"));
-                    toOutput((HashMap) data.get("domeoutput"));
+                    dumpToAceb(data, true);
+//                    dumpToAceb(fieldText.getText(), (HashMap) data.get("ovlDomes"));
+//                    dumpToAceb(strategyText.getText(), (HashMap) data.get("stgDomes"));
+//                    dumpToAceb(linkText.getText(), (HashMap) data.get("linkDomes"));
+//                    toOutput((HashMap) data.get("domeoutput"));
                 } else {
                     Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
                     enableConvertIndicator(false);
@@ -431,9 +648,37 @@ public class QuadUIWindow extends Window implements Bindable {
         task.execute(new TaskAdapter<HashMap>(listener));
     }
 
-    private void toOutput(HashMap map) {
+    private void toOutput(HashMap map, HashMap<String, String> domeIdHashMap) {
+        
+        // ********************** DEUBG ************************
+//        try {
+//            AceDataset ace = AceParser.parse(toJSON(map));
+//            File f = new File(outputText.getText() + "/" + mode + "_ace.txt");
+//            FileWriter fw = new FileWriter(f);
+//            for (AceExperiment exp : ace.getExperiments()) {
+//                fw.append(exp.getValueOr("exname", "N/A"));
+//                fw.append("\t");
+//                fw.append(exp.getId());
+//                fw.append("\r\n");
+//            }
+//            for (AceSoil soil : ace.getSoils()) {
+//                fw.append(soil.getValueOr("soil_id", "N/A"));
+//                fw.append("\t");
+//                fw.append(soil.getId());
+//                fw.append("\r\n");
+//            }
+//            for (AceWeather wth : ace.getWeathers()) {
+//                fw.append(wth.getValueOr("wst_id", "N/A"));
+//                fw.append("\t");
+//                fw.append(wth.getId());
+//                fw.append("\r\n");
+//            }
+//            fw.flush();
+//            fw.close();
+//        } catch (IOException e) {
+//        }
+        // ********************** DEUBG ************************
         txtStatus.setText("Generating model input files...");
-        LOG.info("Generating model input files...");
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {
             models.add("JSON");
@@ -447,6 +692,26 @@ public class QuadUIWindow extends Window implements Bindable {
         if (modelStics.isSelected()) {
             models.add("STICS");
         }
+        if (modelWofost.isSelected()) {
+            models.add("WOFOST");
+        }
+        if (modelCgnau.isSelected()) {
+            models.add("CropGrow-NAU");
+        }
+        if (optionOverwrite.isSelected()) {
+            LOG.info("Clean the previous output folders...");
+            String outPath = outputText.getText() + File.separator;
+            for (String model : models) {
+                if (model.equalsIgnoreCase("JSON")) {
+                    continue;
+                }
+                File dir = new File(outPath + model);
+                if (!Functions.clearDirectory(dir)) {
+                    LOG.warn("Failed to clean {} folder since it is being used by other process", model);
+                }
+            }
+        }
+        LOG.info("Generating model input files...");
 
         if (models.size() == 1 && models.get(0).equals("JSON")) {
             DumpToJson task = new DumpToJson(convertText.getText(), outputText.getText(), map);
@@ -454,6 +719,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
                 @Override
                 public void taskExecuted(Task<String> t) {
+                    LOG.info("Dump to JSON successfully");
                     txtStatus.setText("Completed");
                     Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
                     enableConvertIndicator(false);
@@ -461,8 +727,9 @@ public class QuadUIWindow extends Window implements Bindable {
 
                 @Override
                 public void executeFailed(Task<String> arg0) {
-                    Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                    LOG.info("Dump to JSON failed");
                     LOG.error(getStackTrace(arg0.getFault()));
+                    Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
                     enableConvertIndicator(false);
                 }
             };
@@ -488,12 +755,12 @@ public class QuadUIWindow extends Window implements Bindable {
                 };
                 task.execute(new TaskAdapter<String>(listener));
             }
-            toOutput2(models, map);
+            toOutput2(models, map, domeIdHashMap);
         }
     }
     
-    private void toOutput2(ArrayList<String> models, HashMap map) {
-        TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected());
+    private void toOutput2(ArrayList<String> models, HashMap map, HashMap<String, String> domeIdHashMap) {
+        TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected(), domeIdHashMap);
         TaskListener<String> listener = new TaskListener<String>() {
             @Override
             public void executeFailed(Task<String> arg0) {
@@ -514,16 +781,17 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private static String getStackTrace(Throwable aThrowable) {
-        final Writer result = new StringWriter();
-        final PrintWriter printWriter = new PrintWriter(result);
-        aThrowable.printStackTrace(printWriter);
-        return result.toString();
+//        final Writer result = new StringWriter();
+//        final PrintWriter printWriter = new PrintWriter(result);
+//        aThrowable.printStackTrace(printWriter);
+//        return result.toString();
+        return Functions.getStackTrace(aThrowable);
     }
 
     private void enableLinkFile(boolean enabled) {
-//            lblLink.setEnabled(enabled);
-//            linkText.setEnabled(enabled);
-//            browseLinkFile.setEnabled(enabled);
+            lblLink.setEnabled(enabled);
+            linkText.setEnabled(enabled);
+            browseLinkFile.setEnabled(enabled);
     }
 
     private void enableFieldOverlay(boolean enabled) {
@@ -558,6 +826,9 @@ public class QuadUIWindow extends Window implements Bindable {
                     if (!zeName.endsWith(".csv")) {
                         msg = "Selected DOME will be Auto applied";
                         autoApply = true;
+                    } else {
+                        msg = "";
+                        autoApply = false;
                         break;
                     }
                 }
@@ -565,7 +836,54 @@ public class QuadUIWindow extends Window implements Bindable {
             } catch (IOException ex) {
             }
 
+        } else if (!fileName.endsWith(".csv")) {
+            msg = "Selected DOME will be Auto applied";
+            autoApply = true;
         }
         txtAutoDomeApplyMsg.setText(msg);
+//        if (autoApply) {
+//            QuadUILinkSheet s;
+//            try {
+//                s = (QuadUILinkSheet) new BXMLSerializer().readObject(getClass().getResource("/link_sheet.bxml"));
+//                s.open(QuadUIWindow.this);
+//            } catch (IOException ex) {
+//                ex.printStackTrace();
+//            } catch (SerializationException ex) {
+//                ex.printStackTrace();
+//            }
+//        }
+    }
+
+    private FileBrowserSheet openFileBrowserSheet(String lastPathId) {
+        if (convertText.getText().equals("")) {
+            String lastPath = pref.get(lastPathId, "");
+            File tmp = new File(lastPath);
+            if (lastPath.equals("") || !tmp.exists()) {
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
+            } else {
+                if (!tmp.isDirectory()) {
+                    lastPath = tmp.getParentFile().getPath();
+                }
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, lastPath);
+            }
+        } else {
+            try {
+                String path = new File(convertText.getText()).getCanonicalFile().getParent();
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, path);
+            } catch (IOException ex) {
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
+            }
+        }
+    }
+    
+    private void initCheckBox(Checkbox cb, final String lastSelectId) {
+        cb.setSelected(pref.getBoolean(lastSelectId, false));
+        cb.getButtonStateListeners().add(new ButtonStateListener() {
+
+            @Override
+            public void stateChanged(Button button, State state) {
+                pref.putBoolean(lastSelectId, button.isSelected());
+            }
+        });
     }
 }
