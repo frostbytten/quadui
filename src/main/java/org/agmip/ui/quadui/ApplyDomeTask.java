@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Scanner;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
@@ -28,8 +29,8 @@ public class ApplyDomeTask extends Task<HashMap> {
     private HashMap<String, Object> linkDomes = new HashMap<String, Object>();
     private HashMap<String, String> ovlLinks = new HashMap<String, String>();
     private HashMap<String, String> stgLinks = new HashMap<String, String>();
-    private HashMap<String, String> orgOvlLinks = new HashMap<String, String>();
-    private HashMap<String, String> orgStgLinks = new HashMap<String, String>();
+    private LinkedHashMap<String, String> orgOvlLinks = new LinkedHashMap<String, String>();
+    private LinkedHashMap<String, String> orgStgLinks = new LinkedHashMap<String, String>();
 //    private HashMap<String, ArrayList<String>> wthLinks = new HashMap<String, ArrayList<String>>();
 //    private HashMap<String, ArrayList<String>> soilLinks = new HashMap<String, ArrayList<String>>();
     private HashMap source;
@@ -164,9 +165,10 @@ public class ApplyDomeTask extends Task<HashMap> {
         String linkIds = "";
         ArrayList<String> altLinkIds = new ArrayList();
         altLinkIds.add(idType + "_ALL");
-        if (id.matches(".+_\\d+$") && domeType.equals("overlay")) {
+        if (id.matches("[^_]+_\\d+$") && domeType.equals("strategy")) {
             altLinkIds.add(idType + "_" + id.replaceAll("_\\d+$", ""));
-        } else if (id.matches(".+_\\d+__\\d+$") && domeType.equals("strategy")) {
+        } else if (id.matches(".+_\\d+__\\d+$") && domeType.equals("overlay")) {
+            altLinkIds.add(idType + "_" + id.replaceAll("__\\d+$", ""));
             altLinkIds.add(idType + "_" + id.replaceAll("_\\d+__\\d+$", ""));
         }
         altLinkIds.add(idType + "_" + id);
@@ -191,6 +193,9 @@ public class ApplyDomeTask extends Task<HashMap> {
             return;
         }
         String exname = MapUtil.getValueOr(entry, "exname", "");
+        if (exname.matches(".+_\\d+__\\d+$") && "Y".equals(MapUtil.getValueOr(entry, "seasonal_dome_applied", ""))) {
+            exname = exname.replaceAll("__\\d+$", "");
+        }
         if (!exname.equals("")) {
             links.put("EXNAME_" + exname, domeIds);
         } else {
