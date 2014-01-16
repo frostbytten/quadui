@@ -94,12 +94,13 @@ public class ApplyDomeTask extends Task<HashMap> {
                 DomeInput translator = new DomeInput();
                 linkDomes = (HashMap<String, Object>) translator.readFile(fileName);
             }
-//            else if (fileNameTest.endsWith(".ACEB")) {
-//                log.debug("Entering single ACEB file DOME handling");
-//                ObjectMapper mapper = new ObjectMapper();
-//                String json = new Scanner(new GZIPInputStream(new FileInputStream(fileName)), "UTF-8").useDelimiter("\\A").next();
-//                linkDomes = mapper.readValue(json, new TypeReference<HashMap<String, Object>>() {});
-//            }
+            else if (fileNameTest.endsWith(".ACEB")) {
+                log.debug("Entering single ACEB file DOME handling");
+                ObjectMapper mapper = new ObjectMapper();
+                String json = new Scanner(new GZIPInputStream(new FileInputStream(fileName)), "UTF-8").useDelimiter("\\A").next();
+                linkDomes = mapper.readValue(json, new TypeReference<HashMap<String, Object>>() {});
+                linkDomes = (HashMap) linkDomes.values().iterator().next();
+            }
 
             if (linkDomes != null) {
                 log.debug("link info: {}", linkDomes.toString());
@@ -453,6 +454,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                 log.debug("Apply field overlay domes from link csv: {}", domeName);
             }
 
+            setOriLinkIds(entry, domeName, "overlay");
             if (!domeName.equals("")) {
                 String tmp[] = domeName.split("[|]");
                 int tmpLength = tmp.length;
