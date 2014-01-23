@@ -199,7 +199,14 @@ public class QuadUIWindow extends Window implements Bindable {
                     startTranslation();
                 } catch(Exception ex) {
                     LOG.error(getStackTrace(ex));
-                    Alert.alert(MessageType.ERROR, ex.toString(), QuadUIWindow.this);
+                    if (ex.getClass().getSimpleName().equals("ZipException")) {
+                        final BoxPane pane = new BoxPane(Orientation.VERTICAL);
+                        pane.add(new Label("Please make sure using the latest ADA"));
+                        pane.add(new Label("(no earlier than 0.3.6) to create zip file"));
+                        Alert.alert(MessageType.ERROR, "Zip file broken", pane, QuadUIWindow.this);
+                    } else {
+                        Alert.alert(MessageType.ERROR, ex.toString(), QuadUIWindow.this);
+                    }
                     enableConvertIndicator(false);
                 }
             }
