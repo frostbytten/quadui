@@ -199,7 +199,8 @@ public class QuadUIWindow extends Window implements Bindable {
                     startTranslation();
                 } catch(Exception ex) {
                     LOG.error(getStackTrace(ex));
-
+                    Alert.alert(MessageType.ERROR, ex.toString(), QuadUIWindow.this);
+                    enableConvertIndicator(false);
                 }
             }
         });
@@ -514,7 +515,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
                 @Override
                 public void executeFailed(Task<HashMap> arg0) {
-                    Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                    Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
                     LOG.error(getStackTrace(arg0.getFault()));
                     enableConvertIndicator(false);
                 }
@@ -572,7 +573,7 @@ public class QuadUIWindow extends Window implements Bindable {
             public void executeFailed(Task<HashMap<String, String>> arg0) {
                 LOG.info("Dump to ACE Binary for {} failed", fileName);
                 LOG.error(getStackTrace(arg0.getFault()));
-                Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
                 if (isDome) {
                     toOutput(result, null);
                 }
@@ -640,7 +641,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
             @Override
             public void executeFailed(Task<HashMap> arg0) {
-                Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
                 LOG.error(getStackTrace(arg0.getFault()));
                 enableConvertIndicator(false);
             }
@@ -729,7 +730,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void executeFailed(Task<String> arg0) {
                     LOG.info("Dump to JSON failed");
                     LOG.error(getStackTrace(arg0.getFault()));
-                    Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                    Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
                     enableConvertIndicator(false);
                 }
             };
@@ -749,8 +750,8 @@ public class QuadUIWindow extends Window implements Bindable {
                     public void executeFailed(Task<String> arg0) {
                         LOG.info("Dump to JSON failed");
                         LOG.error(getStackTrace(arg0.getFault()));
-                        Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
-                        enableConvertIndicator(false);
+                        Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
+//                        enableConvertIndicator(false);
                     }
                 };
                 task.execute(new TaskAdapter<String>(listener));
@@ -764,7 +765,7 @@ public class QuadUIWindow extends Window implements Bindable {
         TaskListener<String> listener = new TaskListener<String>() {
             @Override
             public void executeFailed(Task<String> arg0) {
-                Alert.alert(MessageType.ERROR, arg0.getFault().getMessage(), QuadUIWindow.this);
+                Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
                 LOG.error(getStackTrace(arg0.getFault()));
                 enableConvertIndicator(false);
             }
