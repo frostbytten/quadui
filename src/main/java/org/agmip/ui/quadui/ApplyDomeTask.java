@@ -8,6 +8,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -36,6 +38,7 @@ public class ApplyDomeTask extends Task<HashMap> {
     private HashMap source;
     private String mode;
     private boolean autoApply;
+    private int thrPoolSize;
 
     public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, boolean autoApply) {
         this.source = m;
@@ -49,6 +52,12 @@ public class ApplyDomeTask extends Task<HashMap> {
             loadDomeFile(strategyFile, stgDomes);
         }
         loadDomeFile(fieldFile, ovlDomes);
+        thrPoolSize = Runtime.getRuntime().availableProcessors();
+    }
+    
+    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, boolean autoApply, int thrPoolSize) {
+        this(linkFile, fieldFile, strategyFile, mode, m, autoApply);
+        this.thrPoolSize = thrPoolSize;
     }
 
     private void loadDomeLinkFile(String fileName) {
@@ -440,6 +449,19 @@ public class ApplyDomeTask extends Task<HashMap> {
         }
 
         int cnt = 0;
+        ArrayList<ApplyDomeRunner> engineRunners = new ArrayList();
+        ExecutorService executor;
+        if (thrPoolSize > 1) {
+            log.info("Create the thread pool with the size of {} for appling filed overlay DOME", thrPoolSize);
+            executor = Executors.newFixedThreadPool(thrPoolSize);
+        } else if (thrPoolSize == 1) {
+            log.info("Create the single thread pool for appling filed overlay DOME");
+            executor = Executors.newSingleThreadExecutor();
+        } else {
+            log.info("Create the cached thread pool with flexible size for appling filed overlay DOME");
+            executor = Executors.newCachedThreadPool();
+        }
+        HashSet<String> swEngines = new HashSet();
         for (HashMap<String, Object> entry : flattenedData) {
 
             log.debug("Exp at {}: {}, {}, {}",
@@ -463,6 +485,7 @@ public class ApplyDomeTask extends Task<HashMap> {
             if (!domeName.equals("")) {
                 String tmp[] = domeName.split("[|]");
                 int tmpLength = tmp.length;
+                ArrayList<Engine> engines = new ArrayList();
                 for (int i = 0; i < tmpLength; i++) {
                     String tmpDomeId = tmp[i].toUpperCase();
                     log.info("Apply DOME {} for {}", tmpDomeId, MapUtil.getValueOr(entry, "exname", MapUtil.getValueOr(entry, "soil_id", MapUtil.getValueOr(entry, "wst_id", "<Unknow>"))));
@@ -471,27 +494,49 @@ public class ApplyDomeTask extends Task<HashMap> {
                         domeEngine = new Engine(ovlDomes.get(tmpDomeId));
                         entry.put("dome_applied", "Y");
                         entry.put("field_dome_applied", "Y");
-                        domeEngine.apply(flatSoilAndWthData(entry, noExpMode));
-                        ArrayList<String> strategyList = domeEngine.getGenerators();
-                        if (!strategyList.isEmpty()) {
-                            log.warn("The following DOME commands in the field overlay file are ignored : {}", strategyList.toString());
-                        }
-                        if (!noExpMode && !mode.equals("strategy")) {
-                            // Check if there is no weather or soil data matched with experiment
-                            if (((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).isEmpty()) {
-                                log.warn("No baseline weather data found for: [{}]", MapUtil.getValueOr(entry, "exname", "N/A"));
-                            }
-                            if (((HashMap) MapUtil.getObjectOr(entry, "soil", new HashMap())).isEmpty()) {
-                                log.warn("No soil data found for:    [{}]", MapUtil.getValueOr(entry, "exname", "N/A"));
+                        ArrayList<HashMap<String, String>> swRules = domeEngine.extractSoilWthRules();
+                        if (!swRules.isEmpty()) {
+                            String wstId = MapUtil.getValueOr(entry, "wst_id", "");
+                            String soilId = MapUtil.getValueOr(entry, "soil_id", "");
+                            String swId = tmpDomeId + "_" + wstId + "_" + soilId;
+                            if (!swEngines.contains(swId)) {
+                                Engine swDomeEngine = new Engine(swRules);
+                                swDomeEngine.apply(flatSoilAndWthData(entry, noExpMode));
+                                swEngines.add(swId);
                             }
                         }
+                        engines.add(domeEngine);
                     } else {
                         log.error("Cannot find overlay: {}", tmpDomeId);
                         setFailedDomeId(entry, "field_dome_failed", tmpDomeId);
                     }
                 }
+                engineRunners.add(new ApplyDomeRunner(engines, entry, noExpMode, mode));
             }
         }
+        
+        for (ApplyDomeRunner engineRunner : engineRunners) {
+            executor.submit(engineRunner);
+//            engine.apply(flatSoilAndWthData(entry, noExpMode));
+//            ArrayList<String> strategyList = engine.getGenerators();
+//            if (!strategyList.isEmpty()) {
+//                log.warn("The following DOME commands in the field overlay file are ignored : {}", strategyList.toString());
+//            }
+//            if (!noExpMode && !mode.equals("strategy")) {
+//                // Check if there is no weather or soil data matched with experiment
+//                if (((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).isEmpty()) {
+//                    log.warn("No baseline weather data found for: [{}]", MapUtil.getValueOr(entry, "exname", "N/A"));
+//                }
+//                if (((HashMap) MapUtil.getObjectOr(entry, "soil", new HashMap())).isEmpty()) {
+//                    log.warn("No soil data found for:    [{}]", MapUtil.getValueOr(entry, "exname", "N/A"));
+//                }
+//            }
+        }
+        
+        executor.shutdown();
+        while (!executor.isTerminated()) {
+        }
+        executor = null;
 
         if (noExpMode) {
             output.put("domeoutput", source);

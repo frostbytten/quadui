@@ -1,6 +1,5 @@
 package org.agmip.ui.quadui;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,7 +14,6 @@ import org.agmip.ace.AceDataset;
 import org.agmip.ace.AceExperiment;
 import org.agmip.ace.AceSoil;
 import org.agmip.ace.AceWeather;
-import org.agmip.ace.io.AceGenerator;
 import org.agmip.ace.io.AceParser;
 import org.agmip.common.Functions;
 import static org.agmip.common.Functions.getStackTrace;
@@ -58,6 +56,7 @@ public class QuadCmdLine {
     private Properties versionProperties = new Properties();
     private String quadVersion = "";
     private boolean isFromCRAFT = false;
+    private int thrPoolSize = Runtime.getRuntime().availableProcessors();
 
     public QuadCmdLine() {
         try {
@@ -135,6 +134,17 @@ public class QuadCmdLine {
                 isOverwrite = true;
             } else if (args[i].equalsIgnoreCase("-zip")) {
                 isCompressed = true;
+            } else if (args[i].equalsIgnoreCase("-thread")) {
+                if (i < args.length - 1 && args[i + 1].matches("\\d+")) {
+                    i++;
+                    try { 
+                       thrPoolSize = Functions.numericStringToBigInteger(args[i]).intValue();
+                    } catch (Exception e) {
+                        LOG.warn("Invalid number for the size of thread pool, will use default value {}", thrPoolSize);
+                    }
+                } else {
+                    LOG.warn("No valid number provided for the size of thread pool, will use default value {}", thrPoolSize);
+                }
             } else {
                 if (args[i].contains("D")) {
                     addModel(Model.DSSAT.toString());
@@ -480,7 +490,7 @@ public class QuadCmdLine {
 
     private void applyDome(HashMap map, String mode) {
         LOG.info("Applying DOME...");
-        ApplyDomeTask task = new ApplyDomeTask(linkPath, fieldPath, strategyPath, mode, map, isAutoDomeApply());
+        ApplyDomeTask task = new ApplyDomeTask(linkPath, fieldPath, strategyPath, mode, map, isAutoDomeApply(), thrPoolSize);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
             public void taskExecuted(Task<HashMap> t) {
@@ -583,7 +593,7 @@ public class QuadCmdLine {
     }
 
     private void printHelp() {
-        System.out.println("\nThe arguments format : <option_compress> <option_overwrite> <dome_mode_option> <model_option> <convert_path> <link_path> <field_path> <strategy_path> <output_path>");
+        System.out.println("\nThe arguments format : <option_compress> <option_overwrite> <multi_thread_option> <dome_mode_option> <model_option> <convert_path> <link_path> <field_path> <strategy_path> <output_path>");
 //            System.out.println("\nThe arguments format : <dome_mode_option> <model_option> <convert_path> <field_path> <strategy_path> <output_path>");
         System.out.println("\t<option_compress>");
         System.out.println("\t\t-zip \tCompress the generated file into zip package.");
@@ -591,6 +601,11 @@ public class QuadCmdLine {
         System.out.println("\t<option_overwrite>");
         System.out.println("\t\t-clean \tClean model folder under the selected path.");
         System.out.println("\t\t\tIf not provide, will choose new folder for particular model if the folder is filled with files.");
+        System.out.println("\t<multi_thread_option>");
+        System.out.println("\t\t-thread [thread pool size] \tAssign the pool size for multi-thread running.");
+        System.out.println("\t\t\tIf not provide, will auto-detect the number of operator cores and use that number as pool size.");
+        System.out.println("\t\t\tIf provide 1, will choose to use single thread mode");
+        System.out.println("\t\t\tIf provide -1, will choose to use cached thread pool with flexible pool size");
         System.out.println("\t<dome_mode_option>");
         System.out.println("\t\t-n | -none\tRaw Data Only, Default");
         System.out.println("\t\t-f | -filed\tField Overlay, will require Field Overlay File");
@@ -626,6 +641,7 @@ public class QuadCmdLine {
         LOG.info("strategyPath:\t" + strategyPath);
         LOG.info("outputPath:\t" + outputPath);
         LOG.info("Models:\t\t" + models);
+        LOG.info("Thread pool size: \t" + thrPoolSize);
     }
 
     private boolean isAutoDomeApply() {
