@@ -462,7 +462,28 @@ public class QuadCmdLine {
             // Experiments
             arr = new ArrayList();
             for (AceExperiment exp : ace.getExperiments()) {
-                arr.add(JSONAdapter.fromJSON(new String(exp.rebuildComponent())));
+                HashMap expData = JSONAdapter.fromJSON(new String(exp.rebuildComponent()));
+                ArrayList<HashMap<String, String>> events = MapUtil.getBucket(expData, "management").getDataList();
+                boolean isFeExist = false;
+                boolean isIrExist = false;
+                for (HashMap<String, String> event : events) {
+                    String eventType = MapUtil.getValueOr(event, "event", "");
+                    if (isFeExist || eventType.equals("fertilizer")) {
+                        isFeExist = true;
+                    } else if (isIrExist || eventType.equals("irrigation")) {
+                        isIrExist = true;
+                    }
+                    if (isFeExist && isIrExist) {
+                        break;
+                    }
+                }
+                if (isFeExist) {
+                    expData.put("FERTILIZER", "Y");
+                }
+                if (isIrExist) {
+                    expData.put("IRRIG", "Y");
+                }
+                arr.add(expData);
             }
             if (!arr.isEmpty()) {
                 data.put("experiments", arr);
