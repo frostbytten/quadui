@@ -63,7 +63,7 @@
         <dependency>
             <groupId>org.agmip</groupId>
             <artifactId>dome</artifactId>
-            <version>1.4.0</version>
+            <version>1.4.1</version>
         </dependency>
         <dependency>
             <groupId>org.agmip</groupId>
@@ -83,7 +83,7 @@
         <dependency>
             <groupId>org.agmip.translators</groupId>
             <artifactId>translator-dssat</artifactId>
-            <version>1.2.10</version>
+            <version>1.2.11</version>
         </dependency>
         <dependency>
             <groupId>org.agmip.translators</groupId>
