@@ -71,6 +71,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox modelJson = null;
     private Checkbox optionCompress = null;
     private Checkbox optionOverwrite = null;
+    private Checkbox optionLinkage = null;
     private Label txtStatus = null;
     private Label txtAutoDomeApplyMsg = null;
     private Label txtVersion = null;
@@ -82,6 +83,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private TextInput linkText = null;
     private TextInput fieldText = null;
     private TextInput strategyText = null;
+    private BoxPane linkBP = null;
     private ArrayList<Checkbox> checkboxGroup = new ArrayList<Checkbox>();
     private ArrayList<String> errors = new ArrayList<String>();
     private Properties versionProperties = new Properties();
@@ -156,6 +158,7 @@ public class QuadUIWindow extends Window implements Bindable {
         lblLink            = (Label) ns.get("linkLabel");
         lblField            = (Label) ns.get("fieldLabel");
         lblStrategy         = (Label) ns.get("strategyLabel");
+        linkBP              = (BoxPane) ns.get("linkBP");
         convertText         = (TextInput) ns.get("convertText");
         outputText          = (TextInput) ns.get("outputText");
         linkText           = (TextInput) ns.get("linkText");
@@ -169,6 +172,7 @@ public class QuadUIWindow extends Window implements Bindable {
         modelJson           = (Checkbox) ns.get("model-json");
         optionCompress      = (Checkbox) ns.get("option-compress");
         optionOverwrite      = (Checkbox) ns.get("option-overwrite");
+        optionLinkage      = (Checkbox) ns.get("option-linkage");
 
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
@@ -392,6 +396,13 @@ public class QuadUIWindow extends Window implements Bindable {
                     enableStrategyOverlay(true);
                     mode = "strategy";
                 }
+            }
+        });
+
+        optionLinkage.getButtonStateListeners().add(new ButtonStateListener() {
+            @Override
+            public void stateChanged(Button button, State state) {
+                linkBP.setVisible(state.equals(State.UNSELECTED));
             }
         });
 
