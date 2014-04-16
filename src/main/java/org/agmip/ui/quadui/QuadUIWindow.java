@@ -89,6 +89,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Preferences pref = Preferences.userNodeForPackage(getClass());
     private String mode = "";
     private boolean autoApply = false;
+    private HashMap modelSpecFiles;
 
     public QuadUIWindow() {
         try {
@@ -194,6 +195,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     Alert.alert(MessageType.ERROR, "Cannot Convert", pane, QuadUIWindow.this);
                     return;
                 }
+                modelSpecFiles = null;
                 LOG.info("Starting translation job");
                 try {
                     startTranslation();
@@ -508,6 +510,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void taskExecuted(Task<HashMap> t) {
                     HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
+                        modelSpecFiles = (HashMap) data.remove("ModelSpec");
                         dumpToAceb(data);
                         if (mode.equals("none")) {
                             toOutput(data, null);
@@ -789,7 +792,7 @@ public class QuadUIWindow extends Window implements Bindable {
     }
     
     private void toOutput2(ArrayList<String> models, HashMap map, HashMap<String, String> domeIdHashMap) {
-        TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected(), domeIdHashMap);
+        TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected(), domeIdHashMap, modelSpecFiles);
         TaskListener<String> listener = new TaskListener<String>() {
             @Override
             public void executeFailed(Task<String> arg0) {

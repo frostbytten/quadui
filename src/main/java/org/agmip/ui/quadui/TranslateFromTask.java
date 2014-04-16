@@ -30,18 +30,23 @@ public class TranslateFromTask extends Task<HashMap> {
             ZipInputStream z = new ZipInputStream(new BufferedInputStream(f));
             ZipEntry ze;
             while ((ze = z.getNextEntry()) != null) {
-                if (ze.getName().toLowerCase().endsWith(".csv")) {
+                String zeName = ze.getName().toLowerCase();
+                if (zeName.endsWith(".csv")) {
                     translators.put("CSV", new CSVInput());
 //                    break;
                 } else
-                if (ze.getName().toLowerCase().endsWith(".wth")) {
+                if (zeName.endsWith(".wth")) {
                     translators.put("DSSAT", new DssatControllerInput());
 //                    break;
                 } else
-                if (ze.getName().toLowerCase().endsWith(".agmip")) {
+                if (zeName.endsWith(".agmip")) {
                     LOG.debug("Found .AgMIP file {}", ze.getName());
                     translators.put("AgMIP", new AgmipInput());
 //                    break;
+                } else
+                if (ze.isDirectory() && zeName.endsWith("_specific/")) {
+                    LOG.debug("Found model specific folder {}", ze.getName());
+                    translators.put("ModelSpec", new ModelFileDumperInput());
                 }
             }
             if (translators.isEmpty()) {
@@ -67,7 +72,11 @@ public class TranslateFromTask extends Task<HashMap> {
             for (String key : translators.keySet()) {
                 LOG.info("{} translator is fired to read source data package", key);
                 Map m = translators.get(key).readFile(file);
-                combineResult(output, m);
+                if (key.equals("ModelSpec")) {
+                    output.put("ModelSpec", m);
+                } else {
+                    combineResult(output, m);
+                }
                 LOG.debug("{}", output.get("weathers"));
             }
             // Only use in extreme cases
