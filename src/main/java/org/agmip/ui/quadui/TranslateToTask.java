@@ -16,6 +16,7 @@ import org.agmip.translators.apsim.ApsimWriter;
 import org.agmip.translators.dssat.DssatControllerOutput;
 import org.agmip.translators.dssat.DssatWeatherOutput;
 import org.agmip.acmo.util.AcmoUtil;
+import org.agmip.common.Functions;
 import org.agmip.translators.cropgrownau.CropGrowNAUOutput;
 import org.agmip.translators.stics.SticsOutput;
 import org.agmip.translators.wofost.WofostOutputController;
@@ -33,9 +34,10 @@ public class TranslateToTask extends Task<String> {
     private String destDirectory;
     private boolean compress;
     private HashMap<String, String> domeIdHashMap;
+    private HashMap<String, HashMap> modelSpecFiles;
     private static Logger LOG = LoggerFactory.getLogger(TranslateToTask.class);
 
-    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress, HashMap<String, String> domeIdHashMap) {
+    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress, HashMap<String, String> domeIdHashMap, HashMap<String, HashMap> modelSpecFiles) {
         this.data = data;
         this.destDirectory = destDirectory;
         this.translateList = new ArrayList<String>();
@@ -43,6 +45,7 @@ public class TranslateToTask extends Task<String> {
         this.soilList = new ArrayList<String>();
         this.compress = compress;
         this.domeIdHashMap = domeIdHashMap;
+        this.modelSpecFiles = modelSpecFiles;
         for (String trType : translateList) {
             if (!trType.equals("JSON")) {
                 this.translateList.add(trType);
@@ -70,6 +73,17 @@ public class TranslateToTask extends Task<String> {
                     // we should get out of everything.
                     File destDir = createModelDestDirectory(destDirectory, tr);
                     AcmoUtil.writeAcmo(destDir.toString(), data, tr.toLowerCase(), domeIdHashMap);
+                    // Dump the model specific files into corresponding model folder
+                    if (modelSpecFiles != null) {
+                        HashMap modelFiles = (HashMap) modelSpecFiles.get(tr.toLowerCase());
+                        if (modelFiles != null && !modelFiles.isEmpty()) {
+                            try {
+                                new ModelFileDumperOutput().writeFile(destDir.toString(), modelFiles);
+                            } catch (Exception e) {
+                                LOG.error(Functions.getStackTrace(e));
+                            }
+                        }
+                    }
                     if (data.size() == 1 && data.containsKey("weather")) {
                         LOG.info("Running in weather only mode");
                         submitTask(executor, tr, data, destDir, true, compress);

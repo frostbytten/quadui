@@ -71,6 +71,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox modelJson = null;
     private Checkbox optionCompress = null;
     private Checkbox optionOverwrite = null;
+    private Checkbox optionLinkage = null;
     private Label txtStatus = null;
     private Label txtAutoDomeApplyMsg = null;
     private Label txtVersion = null;
@@ -82,6 +83,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private TextInput linkText = null;
     private TextInput fieldText = null;
     private TextInput strategyText = null;
+    private BoxPane linkBP = null;
     private ArrayList<Checkbox> checkboxGroup = new ArrayList<Checkbox>();
     private ArrayList<String> errors = new ArrayList<String>();
     private Properties versionProperties = new Properties();
@@ -89,6 +91,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Preferences pref = Preferences.userNodeForPackage(getClass());
     private String mode = "";
     private boolean autoApply = false;
+    private HashMap modelSpecFiles;
 
     public QuadUIWindow() {
         try {
@@ -155,6 +158,7 @@ public class QuadUIWindow extends Window implements Bindable {
         lblLink            = (Label) ns.get("linkLabel");
         lblField            = (Label) ns.get("fieldLabel");
         lblStrategy         = (Label) ns.get("strategyLabel");
+        linkBP              = (BoxPane) ns.get("linkBP");
         convertText         = (TextInput) ns.get("convertText");
         outputText          = (TextInput) ns.get("outputText");
         linkText           = (TextInput) ns.get("linkText");
@@ -168,6 +172,7 @@ public class QuadUIWindow extends Window implements Bindable {
         modelJson           = (Checkbox) ns.get("model-json");
         optionCompress      = (Checkbox) ns.get("option-compress");
         optionOverwrite      = (Checkbox) ns.get("option-overwrite");
+        optionLinkage      = (Checkbox) ns.get("option-linkage");
 
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
@@ -194,6 +199,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     Alert.alert(MessageType.ERROR, "Cannot Convert", pane, QuadUIWindow.this);
                     return;
                 }
+                modelSpecFiles = null;
                 LOG.info("Starting translation job");
                 try {
                     startTranslation();
@@ -393,6 +399,19 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         });
 
+        optionLinkage.getButtonStateListeners().add(new ButtonStateListener() {
+            @Override
+            public void stateChanged(Button button, State state) {
+                if (state.equals(State.UNSELECTED)) {
+                    linkBP.setVisible(true);
+                } else {
+                    linkBP.setVisible(false);
+                    linkText.setText("");
+                    SetAutoDomeApplyMsg();
+                }
+            }
+        });
+
         initCheckBox(modelApsim, "last_model_select_apsim");
         initCheckBox(modelDssat, "last_model_select_dssat");
         initCheckBox(modelCgnau, "last_model_select_cgnau");
@@ -508,6 +527,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 public void taskExecuted(Task<HashMap> t) {
                     HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
+                        modelSpecFiles = (HashMap) data.remove("ModelSpec");
                         dumpToAceb(data);
                         if (mode.equals("none")) {
                             toOutput(data, null);
@@ -789,7 +809,7 @@ public class QuadUIWindow extends Window implements Bindable {
     }
     
     private void toOutput2(ArrayList<String> models, HashMap map, HashMap<String, String> domeIdHashMap) {
-        TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected(), domeIdHashMap);
+        TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected(), domeIdHashMap, modelSpecFiles);
         TaskListener<String> listener = new TaskListener<String>() {
             @Override
             public void executeFailed(Task<String> arg0) {
@@ -845,7 +865,10 @@ public class QuadUIWindow extends Window implements Bindable {
         String fileName = convertFile.getName().toLowerCase();
         String msg = "";
         autoApply = false;
-        if (fileName.endsWith(".zip")) {
+        if (!linkText.getText().equals("")) {
+            msg = "";
+            autoApply = false;
+        } else if (fileName.endsWith(".zip")) {
             try {
                 ZipFile zf = new ZipFile(convertFile);
                 Enumeration<? extends ZipEntry> e = zf.entries();

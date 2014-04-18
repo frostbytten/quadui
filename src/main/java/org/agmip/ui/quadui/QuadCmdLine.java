@@ -57,6 +57,7 @@ public class QuadCmdLine {
     private String quadVersion = "";
     private boolean isFromCRAFT = false;
     private int thrPoolSize = Runtime.getRuntime().availableProcessors();
+    private HashMap modelSpecFiles;
 
     public QuadCmdLine() {
         try {
@@ -81,6 +82,7 @@ public class QuadCmdLine {
     public void run(String[] args) {
 
         LOG.info("QuadUI {} lauched with JAVA {} under OS {}", quadVersion, System.getProperty("java.runtime.version"), System.getProperty("os.name"));
+        modelSpecFiles = null;
         readCommand(args);
         if (helpFlg) {
             printHelp();
@@ -377,6 +379,7 @@ public class QuadCmdLine {
                 public void taskExecuted(Task<HashMap> t) {
                     HashMap data = t.getResult();
                     if (!data.containsKey("errors")) {
+                        modelSpecFiles = (HashMap) data.remove("ModelSpec");
                         dumpToAceb(data);
                         if (mode.equals(DomeMode.NONE)) {
                             toOutput(data, null);
@@ -596,7 +599,7 @@ public class QuadCmdLine {
     }
 
     private void toOutput2(HashMap map, HashMap<String, String> domeIdHashMap) {
-        TranslateToTask task = new TranslateToTask(models, map, outputPath, isCompressed, domeIdHashMap);
+        TranslateToTask task = new TranslateToTask(models, map, outputPath, isCompressed, domeIdHashMap, modelSpecFiles);
         TaskListener<String> listener = new TaskListener<String>() {
             @Override
             public void executeFailed(Task<String> arg0) {
