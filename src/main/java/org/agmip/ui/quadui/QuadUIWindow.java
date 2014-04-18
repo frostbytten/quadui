@@ -402,7 +402,13 @@ public class QuadUIWindow extends Window implements Bindable {
         optionLinkage.getButtonStateListeners().add(new ButtonStateListener() {
             @Override
             public void stateChanged(Button button, State state) {
-                linkBP.setVisible(state.equals(State.UNSELECTED));
+                if (state.equals(State.UNSELECTED)) {
+                    linkBP.setVisible(true);
+                } else {
+                    linkBP.setVisible(false);
+                    linkText.setText("");
+                    SetAutoDomeApplyMsg();
+                }
             }
         });
 
@@ -859,7 +865,10 @@ public class QuadUIWindow extends Window implements Bindable {
         String fileName = convertFile.getName().toLowerCase();
         String msg = "";
         autoApply = false;
-        if (fileName.endsWith(".zip")) {
+        if (!linkText.getText().equals("")) {
+            msg = "";
+            autoApply = false;
+        } else if (fileName.endsWith(".zip")) {
             try {
                 ZipFile zf = new ZipFile(convertFile);
                 Enumeration<? extends ZipEntry> e = zf.entries();
