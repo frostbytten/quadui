@@ -54,7 +54,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class QuadUIWindow extends Window implements Bindable {
-    private static Logger LOG = LoggerFactory.getLogger(QuadUIWindow.class);
+    private static final Logger LOG = LoggerFactory.getLogger(QuadUIWindow.class);
     private ActivityIndicator convertIndicator = null;
     private PushButton convertButton = null;
     private PushButton browseToConvert = null;
@@ -99,10 +99,10 @@ public class QuadUIWindow extends Window implements Bindable {
             versionProperties.load(versionFile);
             versionFile.close();
             StringBuilder qv = new StringBuilder();
-            String buildType = versionProperties.getProperty("product.buildtype").toString();
+            String buildType = versionProperties.getProperty("product.buildtype");
             qv.append("Version ");
-            qv.append(versionProperties.getProperty("product.version").toString());
-            qv.append("-").append(versionProperties.getProperty("product.buildversion").toString());
+            qv.append(versionProperties.getProperty("product.version"));
+            qv.append("-").append(versionProperties.getProperty("product.buildversion"));
             qv.append("(").append(buildType).append(")");
             if (buildType.equals("dev")) {
                 qv.append(" [").append(versionProperties.getProperty("product.buildts")).append("]");
@@ -121,7 +121,7 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private ArrayList<String> validateInputs() {
-        ArrayList<String> errors = new ArrayList<String>();
+        ArrayList<String> errs = new ArrayList<String>();
         boolean anyModelChecked = false;
         for (Checkbox cbox : checkboxGroup) {
             if (cbox.isSelected()) {
@@ -129,17 +129,17 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         }
         if (!anyModelChecked) {
-            errors.add("You need to select an output format");
+            errs.add("You need to select an output format");
         }
         File convertFile = new File(convertText.getText());
         File outputDir = new File(outputText.getText());
         if (!convertFile.exists()) {
-            errors.add("You need to select a file to convert");
+            errs.add("You need to select a file to convert");
         }
         if (!outputDir.exists() || !outputDir.isDirectory()) {
-            errors.add("You need to select an output directory");
+            errs.add("You need to select an output directory");
         }
-        return errors;
+        return errs;
     }
 
     @Override
@@ -508,7 +508,6 @@ public class QuadUIWindow extends Window implements Bindable {
                 if (!arr.isEmpty()) {
                     data.put("weathers", arr);
                 }
-                ace = null;
 
                 if (mode.equals("none")) {
                     toOutput(data, null);
@@ -564,7 +563,7 @@ public class QuadUIWindow extends Window implements Bindable {
         final HashMap result = (HashMap) map.get("domeoutput");
         boolean isSkipped = false;
         boolean isSkippedForLink = false;
-        if (map == null || (!isDome && filePath.toUpperCase().endsWith(".ACEB"))) {
+        if (!isDome && filePath.toUpperCase().endsWith(".ACEB")) {
             return;
         } else if (isDome && fieldText.getText().toUpperCase().endsWith(".ACEB") && strategyText.getText().toUpperCase().endsWith(".ACEB")) {
             isSkipped = true;
@@ -619,6 +618,9 @@ public class QuadUIWindow extends Window implements Bindable {
             // Experiments
             arr = new ArrayList();
             for (AceExperiment exp : ace.getExperiments()) {
+//                String soil_id = exp.getSoil().getValue("soil_id");
+//                String wst_id = exp.getWeather().getValue("wst_id");
+                String clim_id = exp.getWeather().getValue("clim_id");
                 HashMap expData = JSONAdapter.fromJSON(new String(exp.rebuildComponent()));
                 ArrayList<HashMap<String, String>> events = MapUtil.getBucket(expData, "management").getDataList();
                 boolean isFeExist = false;
@@ -639,6 +641,15 @@ public class QuadUIWindow extends Window implements Bindable {
                 }
                 if (isIrExist) {
                     expData.put("IRRIG", "Y");
+                }
+//                if (soil_id != null && !"".equals(soil_id)) {
+//                    expData.put("soil_id", soil_id);
+//                }
+//                if (wst_id != null && !"".equals(wst_id)) {
+//                    expData.put("wst_id", wst_id);
+//                }
+                if (clim_id != null && !"".equals(clim_id)) {
+                    expData.put("clim_id", clim_id);
                 }
                 arr.add(expData);
             }
