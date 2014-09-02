@@ -39,19 +39,22 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
         File file = new File(fileName);
         String[] base = file.getName().split("\\.(?=[^\\.]+$)");
         String outputAceb;
+        String ext;
         if (isDome) {
             if (data.containsKey("stgDomes")) {
-                outputAceb = directoryName + "/" + base[0] + "_All_DOMEs.aceb";
+                outputAceb = directoryName + "/" + base[0] + "_All_DOMEs.dome";
             } else {
-                outputAceb = directoryName + "/" + base[0] + "_OverlayOnly_DOMEs.aceb";
+                outputAceb = directoryName + "/" + base[0] + "_OverlayOnly_DOMEs.dome";
             }
+            ext = ".dome";
         } else {
             outputAceb = directoryName + "/" + base[0] + ".aceb";
+            ext = ".aceb";
         }
         file = new File(outputAceb);
         int count = 1;
         while (file.isFile() && !file.canWrite()) {
-            file = new File(file.getPath().replaceAll(".+_\\d*.aceb", "_" + count + ".aceb"));
+            file = new File(file.getPath().replaceAll(".+_\\d*" + ext, "_" + count + ext));
             count++;
         }
         try {
@@ -71,7 +74,7 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
                     AceGenerator.generateACEB(file, toJSON(domeHashData));
                 }
                 if (!isSkippedForLink) {
-                    file = new File(directoryName + "/" + base[0] + "_Linkage.aceb");
+                    file = new File(directoryName + "/" + base[0] + "_Linkage.alnk");
                     HashMap<String, HashMap> linkInfo = MapUtil.getObjectOr(data, "linkDomes", new HashMap());
                     String hash = generateHCId(linkInfo).toString();
                     HashMap hashData = new HashMap();

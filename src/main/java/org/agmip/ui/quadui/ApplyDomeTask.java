@@ -104,7 +104,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                 log.debug("Entering single CSV file DOME handling");
                 DomeInput translator = new DomeInput();
                 linkDomes = (HashMap<String, Object>) translator.readFile(fileName);
-            } else if (fileNameTest.endsWith(".ACEB")) {
+            } else if (fileNameTest.endsWith(".ACEB") || fileNameTest.endsWith(".ALNK")) {
                 log.debug("Entering single ACEB file DOME handling");
                 ObjectMapper mapper = new ObjectMapper();
                 String json = new Scanner(new GZIPInputStream(new FileInputStream(fileName)), "UTF-8").useDelimiter("\\A").next();
@@ -267,7 +267,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                 HashMap<String, Object> d = new HashMap<String, Object>();
                 d.put("errors", ex.getMessage());
             }
-        } else if (fileNameTest.endsWith(".ACEB")) {
+        } else if (fileNameTest.endsWith(".ACEB") || fileNameTest.endsWith(".DOME")) {
             log.debug("Entering single ACEB file DOME handling");
             try {
                 ObjectMapper mapper = new ObjectMapper();
