@@ -108,6 +108,10 @@
                   <Checkbox bxml:id="option-linkage" buttonData="Provide linkage file for DOME"/>
                   <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="Use extra file to provide linkage information between experiments and DOMEs" />
                 </BoxPane>
+                <BoxPane orientation="horizontal">
+                  <Checkbox bxml:id="option-acebonly"  buttonData="Only generate ACE Binary files"/>
+                  <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="Skip applying DOME and save time, good for only generating the ACE Binary files" />
+                </BoxPane>
               </BoxPane>
             </Border>
         </BoxPane>

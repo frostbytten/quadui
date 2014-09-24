@@ -26,6 +26,7 @@ public class ApplyDomeRunner implements Runnable {
     public void run() {
         for (Engine engine : engines) {
             LOG.debug("Starting new thread!");
+            LOG.info("Apply DOME {} for {}", engine.getDomeName(), MapUtil.getValueOr(entry, "exname", MapUtil.getValueOr(entry, "soil_id", MapUtil.getValueOr(entry, "wst_id", "<Unknow>"))));
             engine.apply(flatSoilAndWthData(entry, noExpMode));
             ArrayList<String> strategyList = engine.getGenerators();
             if (!strategyList.isEmpty()) {

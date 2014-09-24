@@ -54,6 +54,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class QuadUIWindow extends Window implements Bindable {
+
     private static final Logger LOG = LoggerFactory.getLogger(QuadUIWindow.class);
     private ActivityIndicator convertIndicator = null;
     private PushButton convertButton = null;
@@ -72,6 +73,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox optionCompress = null;
     private Checkbox optionOverwrite = null;
     private Checkbox optionLinkage = null;
+    private Checkbox optionAcebOnly = null;
     private Label txtStatus = null;
     private Label txtAutoDomeApplyMsg = null;
     private Label txtVersion = null;
@@ -91,6 +93,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Preferences pref = Preferences.userNodeForPackage(getClass());
     private String mode = "";
     private boolean autoApply = false;
+    private boolean acebOnly = false;
     private HashMap modelSpecFiles;
 
     public QuadUIWindow() {
@@ -148,20 +151,20 @@ public class QuadUIWindow extends Window implements Bindable {
         convertButton       = (PushButton) ns.get("convertButton");
         browseToConvert     = (PushButton) ns.get("browseConvertButton");
         browseOutputDir     = (PushButton) ns.get("browseOutputButton");
-        browseLinkFile     = (PushButton) ns.get("browseLinkButton");
+        browseLinkFile      = (PushButton) ns.get("browseLinkButton");
         browseFieldFile     = (PushButton) ns.get("browseFieldButton");
         browseStrategyFile  = (PushButton) ns.get("browseStrategyButton");
         runType             = (ButtonGroup) ns.get("runTypeButtons");
         txtStatus           = (Label) ns.get("txtStatus");
         txtAutoDomeApplyMsg = (Label) ns.get("txtAutoDomeApplyMsg");
         txtVersion          = (Label) ns.get("txtVersion");
-        lblLink            = (Label) ns.get("linkLabel");
+        lblLink             = (Label) ns.get("linkLabel");
         lblField            = (Label) ns.get("fieldLabel");
         lblStrategy         = (Label) ns.get("strategyLabel");
         linkBP              = (BoxPane) ns.get("linkBP");
         convertText         = (TextInput) ns.get("convertText");
         outputText          = (TextInput) ns.get("outputText");
-        linkText           = (TextInput) ns.get("linkText");
+        linkText            = (TextInput) ns.get("linkText");
         fieldText           = (TextInput) ns.get("fieldText");
         strategyText        = (TextInput) ns.get("strategyText");
         modelApsim          = (Checkbox) ns.get("model-apsim");
@@ -171,8 +174,9 @@ public class QuadUIWindow extends Window implements Bindable {
         modelCgnau          = (Checkbox) ns.get("model-cgnau");
         modelJson           = (Checkbox) ns.get("model-json");
         optionCompress      = (Checkbox) ns.get("option-compress");
-        optionOverwrite      = (Checkbox) ns.get("option-overwrite");
-        optionLinkage      = (Checkbox) ns.get("option-linkage");
+        optionOverwrite     = (Checkbox) ns.get("option-overwrite");
+        optionLinkage       = (Checkbox) ns.get("option-linkage");
+        optionAcebOnly      = (Checkbox) ns.get("option-acebonly");
 
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
@@ -203,7 +207,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 LOG.info("Starting translation job");
                 try {
                     startTranslation();
-                } catch(Exception ex) {
+                } catch (Exception ex) {
                     LOG.error(getStackTrace(ex));
                     if (ex.getClass().getSimpleName().equals("ZipException")) {
                         final BoxPane pane = new BoxPane(Orientation.VERTICAL);
@@ -294,8 +298,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
                                 && (!file.getName().toLowerCase().endsWith(".zip"))
-                                && (!file.getName().toLowerCase().endsWith(".aceb"))
-                                );
+                                && (!file.getName().toLowerCase().endsWith(".alnk")));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -325,7 +328,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
                                 && (!file.getName().toLowerCase().endsWith(".zip"))
-                                && (!file.getName().toLowerCase().endsWith(".aceb")));
+                                && (!file.getName().toLowerCase().endsWith(".dome")));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -352,7 +355,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
                                 && (!file.getName().toLowerCase().endsWith(".zip"))
-                                && (!file.getName().toLowerCase().endsWith(".aceb")));
+                                && (!file.getName().toLowerCase().endsWith(".dome")));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
@@ -409,6 +412,20 @@ public class QuadUIWindow extends Window implements Bindable {
                     linkText.setText("");
                     SetAutoDomeApplyMsg();
                 }
+            }
+        });
+
+        optionAcebOnly.getButtonStateListeners().add(new ButtonStateListener() {
+            @Override
+            public void stateChanged(Button button, State state) {
+                acebOnly = state.equals(State.SELECTED);
+                modelApsim.setEnabled(acebOnly);
+                modelDssat.setEnabled(acebOnly);
+                modelStics.setEnabled(acebOnly);
+                modelWofost.setEnabled(acebOnly);
+                modelCgnau.setEnabled(acebOnly);
+                modelJson.setEnabled(acebOnly);
+                acebOnly = !acebOnly;
             }
         });
 
@@ -481,7 +498,7 @@ public class QuadUIWindow extends Window implements Bindable {
 //                AceGenerator.generate(baos, acebData, false);
 //                HashMap data = fromJSON(baos.toString());
 //                baos.close();
-                
+
                 HashMap data = new HashMap();
                 ArrayList<HashMap> arr;
                 // Experiments
@@ -565,32 +582,32 @@ public class QuadUIWindow extends Window implements Bindable {
         boolean isSkippedForLink = false;
         if (!isDome && filePath.toUpperCase().endsWith(".ACEB")) {
             return;
-        } else if (isDome && fieldText.getText().toUpperCase().endsWith(".ACEB") && strategyText.getText().toUpperCase().endsWith(".ACEB")) {
+        } else if (isDome && fieldText.getText().toUpperCase().endsWith(".DOME") && strategyText.getText().toUpperCase().endsWith(".DOME")) {
             isSkipped = true;
         }
-        if (linkText.getText().toUpperCase().endsWith(".ACEB")) {
+        if (linkText.getText().toUpperCase().endsWith(".ALNK")) {
             isSkippedForLink = true;
         }
         if (isSkipped) {
             txtStatus.setText("Skip generating ACE Binary file for DOMEs applied for " + fileName + " ...");
             LOG.info("Skip generating ACE Binary file for DOMEs applied for {} ...", fileName);
         } else if (isDome) {
-            txtStatus.setText("Generate ACE Binary file for DOMEs applied for " + fileName + " ...");
-            LOG.info("Generate ACE Binary file for DOMEs applied for {} ...", fileName);
+            txtStatus.setText("Generate DOME file for DOMEs applied for " + fileName + " ...");
+            LOG.info("Generate DOME file for DOMEs applied for {} ...", fileName);
         } else {
             txtStatus.setText("Generate ACE Binary file for " + fileName + " ...");
             LOG.info("Generate ACE Binary file for {} ...", fileName);
         }
         if (isSkippedForLink) {
-            txtStatus.setText("Skip generating ACE Binary file for linkage information used for " + fileName + " ...");
-            LOG.info("Skip generating ACE Binary file for linkage information used for {} ...", fileName);
+            txtStatus.setText("Skip generating ALNK file for " + fileName + " ...");
+            LOG.info("Skip generating ALNK file for {} ...", fileName);
         }
         DumpToAceb task = new DumpToAceb(filePath, outputText.getText(), map, isDome, isSkipped, isSkippedForLink);
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
             public void taskExecuted(Task<HashMap<String, String>> t) {
                 LOG.info("Dump to ACE Binary for {} successfully", fileName);
-                if (isDome) {
+                if (isDome && !acebOnly) {
                     toOutput(result, t.getResult());
                 }
             }
@@ -600,14 +617,14 @@ public class QuadUIWindow extends Window implements Bindable {
                 LOG.info("Dump to ACE Binary for {} failed", fileName);
                 LOG.error(getStackTrace(arg0.getFault()));
                 Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
-                if (isDome) {
+                if (isDome && !acebOnly) {
                     toOutput(result, null);
                 }
             }
         };
         task.execute(new TaskAdapter<HashMap<String, String>>(listener));
     }
-    
+
     private void generateId(HashMap data) {
         try {
             String json = toJSON(data);
@@ -678,6 +695,11 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void applyDome(HashMap map, String mode) {
+        if (acebOnly) {
+            LOG.info("ACE Binary only mode, skip applying DOME.");
+            dumpToAceb(map, true);
+            return;
+        }
         txtStatus.setText("Applying DOME...");
         LOG.info("Applying DOME...");
         ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map, autoApply);
@@ -709,7 +731,7 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void toOutput(HashMap map, HashMap<String, String> domeIdHashMap) {
-        
+
         // ********************** DEUBG ************************
 //        try {
 //            AceDataset ace = AceParser.parse(toJSON(map));
@@ -818,7 +840,7 @@ public class QuadUIWindow extends Window implements Bindable {
             toOutput2(models, map, domeIdHashMap);
         }
     }
-    
+
     private void toOutput2(ArrayList<String> models, HashMap map, HashMap<String, String> domeIdHashMap) {
         TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected(), domeIdHashMap, modelSpecFiles);
         TaskListener<String> listener = new TaskListener<String>() {
@@ -849,9 +871,9 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void enableLinkFile(boolean enabled) {
-            lblLink.setEnabled(enabled);
-            linkText.setEnabled(enabled);
-            browseLinkFile.setEnabled(enabled);
+        lblLink.setEnabled(enabled);
+        linkText.setEnabled(enabled);
+        browseLinkFile.setEnabled(enabled);
     }
 
     private void enableFieldOverlay(boolean enabled) {
@@ -865,7 +887,7 @@ public class QuadUIWindow extends Window implements Bindable {
         strategyText.setEnabled(enabled);
         browseStrategyFile.setEnabled(enabled);
     }
-    
+
     private void enableConvertIndicator(boolean enabled) {
         convertIndicator.setActive(enabled);
         convertButton.setEnabled(!enabled);
@@ -938,7 +960,7 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         }
     }
-    
+
     private void initCheckBox(Checkbox cb, final String lastSelectId) {
         cb.setSelected(pref.getBoolean(lastSelectId, false));
         cb.getButtonStateListeners().add(new ButtonStateListener() {

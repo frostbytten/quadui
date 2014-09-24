@@ -417,10 +417,12 @@ public class QuadCmdLine {
         boolean isSkippedForLink = false;
         if (map == null || (!isDome && convertPath.toUpperCase().endsWith(".ACEB"))) {
             return;
-        } else if (isDome && fieldPath.toUpperCase().endsWith(".ACEB") && strategyPath.toUpperCase().endsWith(".ACEB")) {
+        } else if (isDome && 
+                (fieldPath.toUpperCase().endsWith(".JSON") || fieldPath.toUpperCase().endsWith(".DOME")) && 
+                (strategyPath.toUpperCase().endsWith(".JSON") || strategyPath.toUpperCase().endsWith(".DOME"))) {
             isSkipped = true;
         }
-        if (linkPath != null && linkPath.toUpperCase().endsWith(".ACEB")) {
+        if (linkPath != null && (linkPath.toUpperCase().endsWith(".ACEB") || linkPath.toUpperCase().endsWith(".ALNK"))) {
             isSkippedForLink = true;
         }
         if (isSkipped) {
