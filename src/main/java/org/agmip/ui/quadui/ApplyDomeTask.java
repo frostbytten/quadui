@@ -16,6 +16,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.agmip.dome.DomeUtil;
 import org.agmip.dome.Engine;
+import org.agmip.translators.csv.AlnkInput;
 import org.agmip.translators.csv.DomeInput;
 import org.agmip.util.MapUtil;
 import org.apache.pivot.util.concurrent.Task;
@@ -67,50 +68,14 @@ public class ApplyDomeTask extends Task<HashMap> {
         linkDomes = null;
 
         try {
-//            if (fileNameTest.endsWith(".ZIP")) {
-//                log.debug("Entering Zip file handling");
-//                ZipFile z = null;
-//                try {
-//                    z = new ZipFile(fileName);
-//                    Enumeration  entries = z.entries();
-//                    while (entries.hasMoreElements()) {
-//                        // Do we handle nested zips? Not yet.
-//                        ZipEntry entry = (ZipEntry) entries.nextElement();
-//                        File zipFileName = new File(entry.getName());
-//                        if (zipFileName.getName().toLowerCase().endsWith(".csv") && ! zipFileName.getName().startsWith(".")) {
-//                            log.debug("Processing file: {}", zipFileName.getName());
-//                            DomeInput translator = new DomeInput();
-//                            translator.readCSV(z.getInputStream(entry));
-//                            HashMap<String, Object> link = translator.getDome();
-//                            log.debug("link info: {}", link.toString());
-//                            if (!link.isEmpty()) {
-//                                if (link.containsKey("link_overlay")) {
-//                                    // Combine csv link
-//                                }
-//                                if (link.containsKey("link_stragty")) {
-//                                    // Combine csv link
-//                                }
-//                            }
-//                        }
-//                    }
-//                    z.close();
-//                } catch (Exception ex) {
-//                    log.error("Error processing DOME file: {}", ex.getMessage());
-//                    HashMap<String, Object> d = new HashMap<String, Object>();
-//                    d.put("errors", ex.getMessage());
-//                }
-//            } else
             if (fileNameTest.endsWith(".CSV")) {
-                log.debug("Entering single CSV file DOME handling");
-                DomeInput translator = new DomeInput();
-                linkDomes = (HashMap<String, Object>) translator.readFile(fileName);
-            } else if (fileNameTest.endsWith(".ACEB") || fileNameTest.endsWith(".ALNK")) {
-                log.debug("Entering single ACEB file DOME handling");
-                ObjectMapper mapper = new ObjectMapper();
-                String json = new Scanner(new GZIPInputStream(new FileInputStream(fileName)), "UTF-8").useDelimiter("\\A").next();
-                linkDomes = mapper.readValue(json, new TypeReference<HashMap<String, Object>>() {
-                });
-                linkDomes = (HashMap) linkDomes.values().iterator().next();
+                log.debug("Entering single ACMO CSV file DOME handling");
+                AlnkInput reader = new AlnkInput();
+                linkDomes = (HashMap<String, Object>) reader.readFile(fileName);
+            } else if (fileNameTest.endsWith(".ALNK")) {
+                log.debug("Entering single ALNK file DOME handling");
+                AlnkInput reader = new AlnkInput();
+                linkDomes = (HashMap<String, Object>) reader.readFile(fileName);
             }
 
             if (linkDomes != null) {
@@ -267,11 +232,16 @@ public class ApplyDomeTask extends Task<HashMap> {
                 HashMap<String, Object> d = new HashMap<String, Object>();
                 d.put("errors", ex.getMessage());
             }
-        } else if (fileNameTest.endsWith(".ACEB") || fileNameTest.endsWith(".DOME")) {
-            log.debug("Entering single ACEB file DOME handling");
+        } else if (fileNameTest.endsWith(".JSON") || fileNameTest.endsWith(".DOME")) {
+            log.debug("Entering single ACE Binary file DOME handling");
             try {
                 ObjectMapper mapper = new ObjectMapper();
-                String json = new Scanner(new GZIPInputStream(new FileInputStream(fileName)), "UTF-8").useDelimiter("\\A").next();
+                String json;
+                if (fileNameTest.endsWith(".JSON")) {
+                    json = new Scanner(new FileInputStream(fileName), "UTF-8").useDelimiter("\\A").next();
+                } else {
+                    json = new Scanner(new GZIPInputStream(new FileInputStream(fileName)), "UTF-8").useDelimiter("\\A").next();
+                }
                 HashMap<String, HashMap<String, Object>> tmp = mapper.readValue(json, new TypeReference<HashMap<String, HashMap<String, Object>>>() {
                 });
 //                domes.putAll(tmp);
@@ -503,7 +473,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                 ArrayList<Engine> engines = new ArrayList();
                 for (int i = 0; i < tmpLength; i++) {
                     String tmpDomeId = tmp[i].toUpperCase();
-                    log.info("Apply DOME {} for {}", tmpDomeId, MapUtil.getValueOr(entry, "exname", MapUtil.getValueOr(entry, "soil_id", MapUtil.getValueOr(entry, "wst_id", "<Unknow>"))));
+                    log.debug("Apply DOME {} for {}", tmpDomeId, MapUtil.getValueOr(entry, "exname", MapUtil.getValueOr(entry, "soil_id", MapUtil.getValueOr(entry, "wst_id", "<Unknow>"))));
                     log.debug("Looking for dome_name: {}", tmpDomeId);
                     if (ovlDomes.containsKey(tmpDomeId)) {
                         domeEngine = new Engine(ovlDomes.get(tmpDomeId));
@@ -516,7 +486,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                             } else {
                                 sDomeIds += "|" + tmpDomeId;
                             }
-                            sEngines.add(new Engine(sRules));
+                            sEngines.add(new Engine(sRules, tmpDomeId));
                         }
                         ArrayList<HashMap<String, String>> wRules = domeEngine.extractWthRules();
                         if (!wRules.isEmpty()) {
@@ -525,7 +495,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                             } else {
                                 wDomeIds += "|" + tmpDomeId;
                             }
-                            wEngines.add(new Engine(wRules));
+                            wEngines.add(new Engine(wRules, tmpDomeId));
                         }
                         engines.add(domeEngine);
                     } else {
@@ -600,14 +570,6 @@ public class ApplyDomeTask extends Task<HashMap> {
             output.put("domeoutput", source);
         } else {
             output.put("domeoutput", MapUtil.bundle(flattenedData));
-        }
-        if (linkDomes != null && !linkDomes.isEmpty()) {
-            output.put("linkDomes", linkDomes);
-        } else {
-            linkDomes = new HashMap<String, Object>();
-            linkDomes.put("link_overlay", orgOvlLinks);
-            linkDomes.put("link_stragty", orgStgLinks);
-            output.put("linkDomes", linkDomes);
         }
         if (ovlDomes != null && !ovlDomes.isEmpty()) {
             output.put("ovlDomes", ovlDomes);

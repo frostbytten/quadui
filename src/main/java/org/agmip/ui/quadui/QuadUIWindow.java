@@ -592,15 +592,15 @@ public class QuadUIWindow extends Window implements Bindable {
             txtStatus.setText("Skip generating ACE Binary file for DOMEs applied for " + fileName + " ...");
             LOG.info("Skip generating ACE Binary file for DOMEs applied for {} ...", fileName);
         } else if (isDome) {
-            txtStatus.setText("Generate ACE Binary file for DOMEs applied for " + fileName + " ...");
-            LOG.info("Generate ACE Binary file for DOMEs applied for {} ...", fileName);
+            txtStatus.setText("Generate DOME file for DOMEs applied for " + fileName + " ...");
+            LOG.info("Generate DOME file for DOMEs applied for {} ...", fileName);
         } else {
             txtStatus.setText("Generate ACE Binary file for " + fileName + " ...");
             LOG.info("Generate ACE Binary file for {} ...", fileName);
         }
         if (isSkippedForLink) {
-            txtStatus.setText("Skip generating ACE Binary file for linkage information used for " + fileName + " ...");
-            LOG.info("Skip generating ACE Binary file for linkage information used for {} ...", fileName);
+            txtStatus.setText("Skip generating ALNK file for " + fileName + " ...");
+            LOG.info("Skip generating ALNK file for {} ...", fileName);
         }
         DumpToAceb task = new DumpToAceb(filePath, outputText.getText(), map, isDome, isSkipped, isSkippedForLink);
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {

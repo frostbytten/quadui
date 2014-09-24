@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import org.agmip.ace.io.AceGenerator;
+import org.agmip.translators.csv.AlnkOutput;
 import static org.agmip.util.JSONAdapter.toJSON;
 import org.agmip.util.MapUtil;
 import org.apache.pivot.util.concurrent.Task;
@@ -75,11 +76,8 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
                 }
                 if (!isSkippedForLink) {
                     file = new File(directoryName + "/" + base[0] + "_Linkage.alnk");
-                    HashMap<String, HashMap> linkInfo = MapUtil.getObjectOr(data, "linkDomes", new HashMap());
-                    String hash = generateHCId(linkInfo).toString();
-                    HashMap hashData = new HashMap();
-                    hashData.put(hash, linkInfo);
-                    AceGenerator.generateACEB(file, toJSON(hashData));
+                    AlnkOutput writer = new AlnkOutput();
+                    writer.writeFile(file.getPath(), MapUtil.getObjectOr(data, "domeoutput", new HashMap()));
                 }
                 domeHashData = null;
                 return domeIdHashMap;
