@@ -418,8 +418,8 @@ public class QuadCmdLine {
         if (map == null || (!isDome && convertPath.toUpperCase().endsWith(".ACEB"))) {
             return;
         } else if (isDome && 
-                (fieldPath.toUpperCase().endsWith(".ACEB") || fieldPath.toUpperCase().endsWith(".DOME")) && 
-                (strategyPath.toUpperCase().endsWith(".ACEB") || strategyPath.toUpperCase().endsWith(".DOME"))) {
+                (fieldPath.toUpperCase().endsWith(".JSON") || fieldPath.toUpperCase().endsWith(".DOME")) && 
+                (strategyPath.toUpperCase().endsWith(".JSON") || strategyPath.toUpperCase().endsWith(".DOME"))) {
             isSkipped = true;
         }
         if (linkPath != null && (linkPath.toUpperCase().endsWith(".ACEB") || linkPath.toUpperCase().endsWith(".ALNK"))) {
