@@ -140,9 +140,9 @@ public class ApplyDomeTask extends Task<HashMap> {
         String linkIds = "";
         ArrayList<String> altLinkIds = new ArrayList();
         altLinkIds.add(idType + "_ALL");
-        if (id.matches("[^_]+_\\d+$") && domeType.equals("strategy")) {
+        if (id.matches("[^_]+_\\d+$")) {
             altLinkIds.add(idType + "_" + id.replaceAll("_\\d+$", ""));
-        } else if (id.matches(".+_\\d+__\\d+$") && domeType.equals("overlay")) {
+        } else if (id.matches(".+_\\d+__\\d+$")) {
             altLinkIds.add(idType + "_" + id.replaceAll("__\\d+$", ""));
             altLinkIds.add(idType + "_" + id.replaceAll("_\\d+__\\d+$", ""));
         }
