@@ -420,7 +420,7 @@ public class QuadCmdLine {
             return;
         } else if (isDome && 
                 (fieldPath.toUpperCase().endsWith(".JSON") || fieldPath.toUpperCase().endsWith(".DOME")) && 
-                (strategyPath.toUpperCase().endsWith(".JSON") || strategyPath.toUpperCase().endsWith(".DOME"))) {
+                (mode.equals(DomeMode.STRATEGY) && (strategyPath.toUpperCase().endsWith(".JSON") || strategyPath.toUpperCase().endsWith(".DOME")))) {
             isSkipped = true;
         }
         if (linkPath != null && (linkPath.toUpperCase().endsWith(".ACEB") || linkPath.toUpperCase().endsWith(".ALNK"))) {
