@@ -42,7 +42,7 @@ public class QuadCmdLine {
 
         DSSAT, APSIM, STICS, WOFOST, CropGrowNAU, JSON
     }
-    private static Logger LOG = LoggerFactory.getLogger(QuadCmdLine.class);
+    private static final Logger LOG = LoggerFactory.getLogger(QuadCmdLine.class);
     private DomeMode mode = DomeMode.NONE;
     private String convertPath = null;
     private String linkPath = null;
@@ -67,10 +67,10 @@ public class QuadCmdLine {
             versionProperties.load(versionFile);
             versionFile.close();
             StringBuilder qv = new StringBuilder();
-            String buildType = versionProperties.getProperty("product.buildtype").toString();
+            String buildType = versionProperties.getProperty("product.buildtype");
             qv.append("Version ");
-            qv.append(versionProperties.getProperty("product.version").toString());
-            qv.append("-").append(versionProperties.getProperty("product.buildversion").toString());
+            qv.append(versionProperties.getProperty("product.version"));
+            qv.append("-").append(versionProperties.getProperty("product.buildversion"));
             qv.append("(").append(buildType).append(")");
             if (buildType.equals("dev")) {
                 qv.append(" [").append(versionProperties.getProperty("product.buildts")).append("]");
@@ -363,7 +363,6 @@ public class QuadCmdLine {
                 if (!arr.isEmpty()) {
                     data.put("weathers", arr);
                 }
-                ace = null;
 
                 if (mode.equals(DomeMode.NONE)) {
                     toOutput(data, null);
@@ -417,7 +416,7 @@ public class QuadCmdLine {
         final HashMap result = (HashMap) map.get("domeoutput");
         boolean isSkipped = false;
         boolean isSkippedForLink = false;
-        if (map == null || (!isDome && convertPath.toUpperCase().endsWith(".ACEB"))) {
+        if (!isDome && convertPath.toUpperCase().endsWith(".ACEB")) {
             return;
         } else if (isDome && 
                 (fieldPath.toUpperCase().endsWith(".JSON") || fieldPath.toUpperCase().endsWith(".DOME")) && 
