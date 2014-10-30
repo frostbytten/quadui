@@ -94,6 +94,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private String mode = "";
     private boolean autoApply = false;
     private boolean acebOnly = false;
+    private boolean acebOnlyRet = true;
     private HashMap modelSpecFiles;
 
     public QuadUIWindow() {
@@ -125,14 +126,16 @@ public class QuadUIWindow extends Window implements Bindable {
 
     private ArrayList<String> validateInputs() {
         ArrayList<String> errs = new ArrayList<String>();
-        boolean anyModelChecked = false;
-        for (Checkbox cbox : checkboxGroup) {
-            if (cbox.isSelected()) {
-                anyModelChecked = true;
+        if (!acebOnly) {
+            boolean anyModelChecked = false;
+            for (Checkbox cbox : checkboxGroup) {
+                if (cbox.isSelected()) {
+                    anyModelChecked = true;
+                }
             }
-        }
-        if (!anyModelChecked) {
-            errs.add("You need to select an output format");
+            if (!anyModelChecked) {
+                errs.add("You need to select an output format");
+            }
         }
         File convertFile = new File(convertText.getText());
         File outputDir = new File(outputText.getText());
@@ -606,23 +609,72 @@ public class QuadUIWindow extends Window implements Bindable {
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
             public void taskExecuted(Task<HashMap<String, String>> t) {
-                LOG.info("Dump to ACE Binary for {} successfully", fileName);
-                if (isDome && !acebOnly) {
+                if (isDome) {
+                    LOG.info("Dump to ACE Binary for DOMEs applied for {} successfully", fileName);
+                } else {
+                    LOG.info("Dump to ACE Binary for {} successfully", fileName);
+                }
+                if (isDome) {
+                    reviseData(result);
                     toOutput(result, t.getResult());
                 }
             }
 
             @Override
             public void executeFailed(Task<HashMap<String, String>> arg0) {
-                LOG.info("Dump to ACE Binary for {} failed", fileName);
+                if (isDome) {
+                    LOG.info("Dump to ACE Binary for DOMEs applied for {} failed", fileName);
+                } else {
+                    LOG.info("Dump to ACE Binary for {} failed", fileName);
+                }
                 LOG.error(getStackTrace(arg0.getFault()));
                 Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
-                if (isDome && !acebOnly) {
+                if (acebOnly) {
+                    acebOnlyRet = false;
+                }
+                if (isDome) {
+                    reviseData(result);
                     toOutput(result, null);
                 }
             }
         };
         task.execute(new TaskAdapter<HashMap<String, String>>(listener));
+    }
+
+    private void reviseData(HashMap data) {
+        ArrayList<HashMap> wthArr = MapUtil.getObjectOr(data, "weathers", new ArrayList<HashMap>());
+        HashMap<String, String> wstIdClimIdMap = new HashMap();
+        for (HashMap wthData : wthArr) {
+            wstIdClimIdMap.put(MapUtil.getValueOr(wthData, "wst_id", ""), MapUtil.getValueOr(wthData, "clim_id", ""));
+        }
+        ArrayList<HashMap> expArr = MapUtil.getObjectOr(data, "experiments", new ArrayList<HashMap>());
+        for (HashMap expData : expArr) {
+            ArrayList<HashMap<String, String>> events = MapUtil.getBucket(expData, "management").getDataList();
+            boolean isFeExist = false;
+            boolean isIrExist = false;
+            for (HashMap<String, String> event : events) {
+                String eventType = MapUtil.getValueOr(event, "event", "");
+                if (isFeExist || eventType.equals("fertilizer")) {
+                    isFeExist = true;
+                } else if (isIrExist || eventType.equals("irrigation")) {
+                    isIrExist = true;
+                }
+                if (isFeExist && isIrExist) {
+                    break;
+                }
+            }
+            if (isFeExist) {
+                expData.put("FERTILIZER", "Y");
+            }
+            if (isIrExist) {
+                expData.put("IRRIG", "Y");
+            }
+            String wst_id = MapUtil.getValueOr(expData, "wst_id", "");
+            String clim_id = wstIdClimIdMap.get(wst_id);
+            if (clim_id != null && !"".equals(clim_id)) {
+                expData.put("clim_id", clim_id);
+            }
+        }
     }
 
     private void generateId(HashMap data) {
@@ -635,39 +687,7 @@ public class QuadUIWindow extends Window implements Bindable {
             // Experiments
             arr = new ArrayList();
             for (AceExperiment exp : ace.getExperiments()) {
-//                String soil_id = exp.getSoil().getValue("soil_id");
-//                String wst_id = exp.getWeather().getValue("wst_id");
-                String clim_id = exp.getWeather().getValue("clim_id");
                 HashMap expData = JSONAdapter.fromJSON(new String(exp.rebuildComponent()));
-                ArrayList<HashMap<String, String>> events = MapUtil.getBucket(expData, "management").getDataList();
-                boolean isFeExist = false;
-                boolean isIrExist = false;
-                for (HashMap<String, String> event : events) {
-                    String eventType = MapUtil.getValueOr(event, "event", "");
-                    if (isFeExist || eventType.equals("fertilizer")) {
-                        isFeExist = true;
-                    } else if (isIrExist || eventType.equals("irrigation")) {
-                        isIrExist = true;
-                    }
-                    if (isFeExist && isIrExist) {
-                        break;
-                    }
-                }
-                if (isFeExist) {
-                    expData.put("FERTILIZER", "Y");
-                }
-                if (isIrExist) {
-                    expData.put("IRRIG", "Y");
-                }
-//                if (soil_id != null && !"".equals(soil_id)) {
-//                    expData.put("soil_id", soil_id);
-//                }
-//                if (wst_id != null && !"".equals(wst_id)) {
-//                    expData.put("wst_id", wst_id);
-//                }
-                if (clim_id != null && !"".equals(clim_id)) {
-                    expData.put("clim_id", clim_id);
-                }
                 arr.add(expData);
             }
             if (!arr.isEmpty()) {
@@ -760,6 +780,20 @@ public class QuadUIWindow extends Window implements Bindable {
 //        } catch (IOException e) {
 //        }
         // ********************** DEUBG ************************
+        if (acebOnly) {
+            if (acebOnlyRet) {
+                txtStatus.setText("Completed");
+                Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
+                enableConvertIndicator(false);
+                LOG.info("=== Completed translation job ===");
+                return;
+            } else {
+                txtStatus.setText("Failed");
+                Alert.alert(MessageType.ERROR, "Translation failed", QuadUIWindow.this);
+                enableConvertIndicator(false);
+                return;
+            }
+        }
         txtStatus.setText("Generating model input files...");
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {

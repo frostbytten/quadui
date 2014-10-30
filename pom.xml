@@ -14,7 +14,7 @@
         <jdk.version>1.6</jdk.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <product.buildtype>dev</product.buildtype>
-        <product.buildversion>beta29-hf2</product.buildversion>
+        <product.buildversion>beta30</product.buildversion>
         <product.buildts>${maven.build.timestamp}</product.buildts>
     </properties>
 
@@ -83,7 +83,7 @@
         <dependency>
             <groupId>org.agmip.translators</groupId>
             <artifactId>translator-dssat</artifactId>
-            <version>1.2.14</version>
+            <version>1.2.15</version>
         </dependency>
         <dependency>
             <groupId>org.agmip.translators</groupId>

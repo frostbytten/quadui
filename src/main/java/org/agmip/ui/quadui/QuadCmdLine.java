@@ -42,7 +42,7 @@ public class QuadCmdLine {
 
         DSSAT, APSIM, STICS, WOFOST, CropGrowNAU, JSON
     }
-    private static Logger LOG = LoggerFactory.getLogger(QuadCmdLine.class);
+    private static final Logger LOG = LoggerFactory.getLogger(QuadCmdLine.class);
     private DomeMode mode = DomeMode.NONE;
     private String convertPath = null;
     private String linkPath = null;
@@ -53,6 +53,8 @@ public class QuadCmdLine {
     private boolean helpFlg = false;
     private boolean isOverwrite = false;
     private boolean isCompressed = false;
+    private boolean acebOnly = false;
+    private boolean acebOnlyRet = true;
     private Properties versionProperties = new Properties();
     private String quadVersion = "";
     private boolean isFromCRAFT = false;
@@ -65,10 +67,10 @@ public class QuadCmdLine {
             versionProperties.load(versionFile);
             versionFile.close();
             StringBuilder qv = new StringBuilder();
-            String buildType = versionProperties.getProperty("product.buildtype").toString();
+            String buildType = versionProperties.getProperty("product.buildtype");
             qv.append("Version ");
-            qv.append(versionProperties.getProperty("product.version").toString());
-            qv.append("-").append(versionProperties.getProperty("product.buildversion").toString());
+            qv.append(versionProperties.getProperty("product.version"));
+            qv.append("-").append(versionProperties.getProperty("product.buildversion"));
             qv.append("(").append(buildType).append(")");
             if (buildType.equals("dev")) {
                 qv.append(" [").append(versionProperties.getProperty("product.buildts")).append("]");
@@ -119,6 +121,8 @@ public class QuadCmdLine {
             } else if (args[i].equalsIgnoreCase("-h") || args[i].equalsIgnoreCase("-help")) {
                 helpFlg = true;
                 return;
+            } else if (args[i].equalsIgnoreCase("-aceb")) {
+                acebOnly = true;
             } else if (args[i].equalsIgnoreCase("-dssat")) {
                 addModel(Model.DSSAT.toString());
             } else if (args[i].equalsIgnoreCase("-apsim")) {
@@ -238,7 +242,7 @@ public class QuadCmdLine {
             return false;
         }
 
-        if (models.isEmpty()) {
+        if (!acebOnly && models.isEmpty()) {
             LOG.warn("<model_option> is required for running translation");
             return false;
         }
@@ -361,7 +365,6 @@ public class QuadCmdLine {
                 if (!arr.isEmpty()) {
                     data.put("weathers", arr);
                 }
-                ace = null;
 
                 if (mode.equals(DomeMode.NONE)) {
                     toOutput(data, null);
@@ -415,11 +418,11 @@ public class QuadCmdLine {
         final HashMap result = (HashMap) map.get("domeoutput");
         boolean isSkipped = false;
         boolean isSkippedForLink = false;
-        if (map == null || (!isDome && convertPath.toUpperCase().endsWith(".ACEB"))) {
+        if (!isDome && convertPath.toUpperCase().endsWith(".ACEB")) {
             return;
         } else if (isDome && 
                 (fieldPath.toUpperCase().endsWith(".JSON") || fieldPath.toUpperCase().endsWith(".DOME")) && 
-                (strategyPath.toUpperCase().endsWith(".JSON") || strategyPath.toUpperCase().endsWith(".DOME"))) {
+                (mode.equals(DomeMode.STRATEGY) && (strategyPath.toUpperCase().endsWith(".JSON") || strategyPath.toUpperCase().endsWith(".DOME")))) {
             isSkipped = true;
         }
         if (linkPath != null && (linkPath.toUpperCase().endsWith(".ACEB") || linkPath.toUpperCase().endsWith(".ALNK"))) {
@@ -439,22 +442,71 @@ public class QuadCmdLine {
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
             public void taskExecuted(Task<HashMap<String, String>> t) {
-                LOG.info("Dump to ACE Binary for {} successfully", fileName);
                 if (isDome) {
+                    LOG.info("Dump to ACE Binary for DOMEs applied for {} successfully", fileName);
+                } else {
+                    LOG.info("Dump to ACE Binary for {} successfully", fileName);
+                }
+                if (isDome) {
+                    reviseData(result);
                     toOutput(result, t.getResult());
                 }
             }
 
             @Override
             public void executeFailed(Task<HashMap<String, String>> arg0) {
-                LOG.info("Dump to ACE Binary for {} failed", fileName);
-                LOG.error(getStackTrace(arg0.getFault()));
                 if (isDome) {
+                    LOG.info("Dump to ACE Binary for DOMEs applied for {} failed", fileName);
+                } else {
+                    LOG.info("Dump to ACE Binary for {} failed", fileName);
+                }
+                LOG.error(getStackTrace(arg0.getFault()));
+                if (acebOnly) {
+                    acebOnlyRet = false;
+                }
+                if (isDome) {
+                    reviseData(result);
                     toOutput(result, arg0.getResult());
                 }
             }
         };
         task.execute(new TaskAdapter<HashMap<String, String>>(listener));
+    }
+
+    private void reviseData(HashMap data) {
+        ArrayList<HashMap> wthArr = MapUtil.getObjectOr(data, "weathers", new ArrayList<HashMap>());
+        HashMap<String, String> wstIdClimIdMap = new HashMap();
+        for (HashMap wthData : wthArr) {
+            wstIdClimIdMap.put(MapUtil.getValueOr(wthData, "wst_id", ""), MapUtil.getValueOr(wthData, "clim_id", ""));
+        }
+        ArrayList<HashMap> expArr = MapUtil.getObjectOr(data, "experiments", new ArrayList<HashMap>());
+        for (HashMap expData : expArr) {
+            ArrayList<HashMap<String, String>> events = MapUtil.getBucket(expData, "management").getDataList();
+            boolean isFeExist = false;
+            boolean isIrExist = false;
+            for (HashMap<String, String> event : events) {
+                String eventType = MapUtil.getValueOr(event, "event", "");
+                if (isFeExist || eventType.equals("fertilizer")) {
+                    isFeExist = true;
+                } else if (isIrExist || eventType.equals("irrigation")) {
+                    isIrExist = true;
+                }
+                if (isFeExist && isIrExist) {
+                    break;
+                }
+            }
+            if (isFeExist) {
+                expData.put("FERTILIZER", "Y");
+            }
+            if (isIrExist) {
+                expData.put("IRRIG", "Y");
+            }
+            String wst_id = MapUtil.getValueOr(expData, "wst_id", "");
+            String clim_id = wstIdClimIdMap.get(wst_id);
+            if (clim_id != null && !"".equals(clim_id)) {
+                expData.put("clim_id", clim_id);
+            }
+        }
     }
 
     private void generateId(HashMap data) {
@@ -468,26 +520,6 @@ public class QuadCmdLine {
             arr = new ArrayList();
             for (AceExperiment exp : ace.getExperiments()) {
                 HashMap expData = JSONAdapter.fromJSON(new String(exp.rebuildComponent()));
-                ArrayList<HashMap<String, String>> events = MapUtil.getBucket(expData, "management").getDataList();
-                boolean isFeExist = false;
-                boolean isIrExist = false;
-                for (HashMap<String, String> event : events) {
-                    String eventType = MapUtil.getValueOr(event, "event", "");
-                    if (isFeExist || eventType.equals("fertilizer")) {
-                        isFeExist = true;
-                    } else if (isIrExist || eventType.equals("irrigation")) {
-                        isIrExist = true;
-                    }
-                    if (isFeExist && isIrExist) {
-                        break;
-                    }
-                }
-                if (isFeExist) {
-                    expData.put("FERTILIZER", "Y");
-                }
-                if (isIrExist) {
-                    expData.put("IRRIG", "Y");
-                }
                 arr.add(expData);
             }
             if (!arr.isEmpty()) {
@@ -515,6 +547,11 @@ public class QuadCmdLine {
     }
 
     private void applyDome(HashMap map, String mode) {
+        if (acebOnly) {
+            LOG.info("ACE Binary only mode, skip applying DOME.");
+            dumpToAceb(map, true);
+            return;
+        }
         LOG.info("Applying DOME...");
         ApplyDomeTask task = new ApplyDomeTask(linkPath, fieldPath, strategyPath, mode, map, isAutoDomeApply(), thrPoolSize);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
@@ -541,6 +578,12 @@ public class QuadCmdLine {
 
     private void toOutput(HashMap map, HashMap<String, String> domeIdHashMap) {
 
+        if (acebOnly) {
+            if (acebOnlyRet) {
+                LOG.info("=== Completed translation job ===");
+                return;
+            }
+        }
         if (isOverwrite) {
             LOG.info("Clean the previous output folders...");
             String outPath;
@@ -643,6 +686,7 @@ public class QuadCmdLine {
         System.out.println("\t\t-W | -wofost\tWOFOST");
         System.out.println("\t\t-C | -cropgrownau\tCropGrow-NAU");
         System.out.println("\t\t-J | -json\tJSON");
+        System.out.println("\t\t-aceb\t\tACEB only, will ignore other model choices");
         System.out.println("\t\t* Could be combined input like -DAJ or -DJ");
         System.out.println("\t<convert_path>");
         System.out.println("\t\tThe path for file to be converted");
@@ -666,7 +710,11 @@ public class QuadCmdLine {
         LOG.info("fieldPath: \t" + fieldPath);
         LOG.info("strategyPath:\t" + strategyPath);
         LOG.info("outputPath:\t" + outputPath);
-        LOG.info("Models:\t\t" + models);
+        if (acebOnly) {
+            LOG.info("Models:\t\tACEB only");
+        } else {
+            LOG.info("Models:\t\t" + models);
+        }
         LOG.info("Thread pool size: \t" + thrPoolSize);
     }
 
