@@ -123,6 +123,8 @@ public class QuadCmdLine {
                 return;
             } else if (args[i].equalsIgnoreCase("-aceb")) {
                 acebOnly = true;
+            } else if (args[i].equalsIgnoreCase("-dssat")) {
+                addModel(Model.DSSAT.toString());
             } else if (args[i].equalsIgnoreCase("-apsim")) {
                 addModel(Model.APSIM.toString());
             } else if (args[i].equalsIgnoreCase("-stics")) {
