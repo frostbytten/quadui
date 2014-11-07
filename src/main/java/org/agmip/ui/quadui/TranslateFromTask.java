@@ -2,11 +2,19 @@ package org.agmip.ui.quadui;
 
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceExperiment;
+import org.agmip.ace.AceSoil;
+import org.agmip.ace.AceWeather;
+import org.agmip.ace.io.AceParser;
 import org.agmip.common.Functions;
 
 import org.apache.pivot.util.concurrent.Task;
@@ -14,14 +22,16 @@ import org.agmip.core.types.TranslatorInput;
 import org.agmip.translators.csv.CSVInput;
 import org.agmip.translators.dssat.DssatControllerInput;
 import org.agmip.translators.agmip.AgmipInput;
+import org.agmip.util.JSONAdapter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class TranslateFromTask extends Task<HashMap> {
+
     private static final Logger LOG = LoggerFactory.getLogger(TranslateFromTask.class);
-    private String file;
-    private HashMap<String, TranslatorInput> translators = new HashMap<String, TranslatorInput>();
+    private final String file;
+    private final HashMap<String, TranslatorInput> translators = new HashMap<String, TranslatorInput>();
 
     public TranslateFromTask(String file) throws Exception {
         this.file = file;
@@ -34,17 +44,17 @@ public class TranslateFromTask extends Task<HashMap> {
                 if (zeName.endsWith(".csv")) {
                     translators.put("CSV", new CSVInput());
 //                    break;
-                } else
-                if (zeName.endsWith(".wth")) {
+                } else if (zeName.endsWith(".wth")) {
                     translators.put("DSSAT", new DssatControllerInput());
 //                    break;
-                } else
-                if (zeName.endsWith(".agmip")) {
+                } else if (zeName.endsWith(".agmip")) {
                     LOG.debug("Found .AgMIP file {}", ze.getName());
                     translators.put("AgMIP", new AgmipInput());
 //                    break;
-                } else
-                if (ze.isDirectory() && zeName.endsWith("_specific/")) {
+                } else if (zeName.endsWith(".aceb")) {
+                    LOG.debug("Found .ACEB file {}", ze.getName());
+                    translators.put("ACEB", new AcebInput());
+                } else if (ze.isDirectory() && zeName.endsWith("_specific/")) {
                     LOG.debug("Found model specific folder {}", ze.getName());
                     translators.put("ModelSpec", new ModelFileDumperInput());
                 }
@@ -58,7 +68,7 @@ public class TranslateFromTask extends Task<HashMap> {
             translators.put("AgMIP", new AgmipInput());
         } else if (file.toLowerCase().endsWith(".csv")) {
             translators.put("CSV", new CSVInput());
-        } else { 
+        } else {
             LOG.error("Unsupported file: {}", file);
             throw new Exception("Unsupported file type");
         }
@@ -88,7 +98,7 @@ public class TranslateFromTask extends Task<HashMap> {
             return output;
         }
     }
-    
+
     private void combineResult(HashMap out, Map in) {
         String[] keys = {"experiments", "soils", "weathers"};
         for (String key : keys) {
@@ -101,7 +111,63 @@ public class TranslateFromTask extends Task<HashMap> {
                 } else {
                     outArr.addAll(inArr);
                 }
-            } 
+            }
         }
+    }
+
+    private class AcebInput implements TranslatorInput {
+
+        @Override
+        public Map readFile(String file) throws Exception {
+            HashMap ret = new HashMap();
+            ZipFile zf = new ZipFile(file);
+            Enumeration<? extends ZipEntry> e = zf.entries();
+            while (e.hasMoreElements()) {
+                ZipEntry ze = (ZipEntry) e.nextElement();
+                LOG.debug("Entering file: " + ze);
+                if (ze.getName().toLowerCase().endsWith(".aceb")) {
+                    combineResult(ret, readAceb(zf.getInputStream(ze)));
+                }
+            }
+            zf.close();
+            return ret;
+        }
+
+    }
+
+    private Map readAceb(InputStream fileStream) throws Exception {
+        HashMap data = new HashMap();
+        try {
+            AceDataset ace = AceParser.parseACEB(fileStream);
+            ace.linkDataset();
+            ArrayList<HashMap> arr;
+            // Experiments
+            arr = new ArrayList();
+            for (AceExperiment exp : ace.getExperiments()) {
+                arr.add(JSONAdapter.fromJSON(new String(exp.rebuildComponent())));
+            }
+            if (!arr.isEmpty()) {
+                data.put("experiments", arr);
+            }
+            // Soils
+            arr = new ArrayList();
+            for (AceSoil soil : ace.getSoils()) {
+                arr.add(JSONAdapter.fromJSON(new String(soil.rebuildComponent())));
+            }
+            if (!arr.isEmpty()) {
+                data.put("soils", arr);
+            }
+            // Weathers
+            arr = new ArrayList();
+            for (AceWeather wth : ace.getWeathers()) {
+                arr.add(JSONAdapter.fromJSON(new String(wth.rebuildComponent())));
+            }
+            if (!arr.isEmpty()) {
+                data.put("weathers", arr);
+            }
+        } catch (Exception ex) {
+            LOG.error(Functions.getStackTrace(ex));
+        }
+        return data;
     }
 }
