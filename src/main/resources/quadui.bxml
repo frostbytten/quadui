@@ -39,6 +39,8 @@
               <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="Raw data to be converted to multiple model format" />
             </BoxPane>
             <BoxPane orientation="horizontal"><TextInput bxml:id="convertText" editable="false"/><PushButton bxml:id="browseConvertButton" buttonData="Browse"/></BoxPane>
+            <BoxPane orientation="horizontal"><Checkbox bxml:id="convertSupCB" buttonData="Provide supplemental source data file" tooltipDelay="200" tooltipText="Supplemental data will be imported into original data and become a new data set"/></BoxPane>
+            <BoxPane orientation="horizontal"><TextInput bxml:id="convertSupText" editable="false" visible="false"/><PushButton bxml:id="browseConvertSupButton" buttonData="Browse" visible="false"/></BoxPane>
           </BoxPane>
           <BoxPane orientation="vertical" styles="{padding:{left: 6}}">
             <Label text="Run Type:" styles="{font:{bold:true}}" />

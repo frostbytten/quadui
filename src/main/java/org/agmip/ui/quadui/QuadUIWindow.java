@@ -59,11 +59,13 @@ public class QuadUIWindow extends Window implements Bindable {
     private ActivityIndicator convertIndicator = null;
     private PushButton convertButton = null;
     private PushButton browseToConvert = null;
+    private PushButton browseToConvertSup = null;
     private PushButton browseOutputDir = null;
     private PushButton browseLinkFile = null;
     private PushButton browseFieldFile = null;
     private PushButton browseStrategyFile = null;
     private ButtonGroup runType = null;
+    private Checkbox convertSupCB = null;
     private Checkbox modelApsim = null;
     private Checkbox modelDssat = null;
     private Checkbox modelStics = null;
@@ -82,6 +84,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Label lblStrategy = null;
     private TextInput outputText = null;
     private TextInput convertText = null;
+    private TextInput convertSupText = null;
     private TextInput linkText = null;
     private TextInput fieldText = null;
     private TextInput strategyText = null;
@@ -95,6 +98,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private boolean autoApply = false;
     private boolean acebOnly = false;
     private boolean acebOnlyRet = true;
+    private boolean isMultiInput = false;
     private HashMap modelSpecFiles;
 
     public QuadUIWindow() {
@@ -145,6 +149,12 @@ public class QuadUIWindow extends Window implements Bindable {
         if (!outputDir.exists() || !outputDir.isDirectory()) {
             errs.add("You need to select an output directory");
         }
+        if (isMultiInput) {
+            File convertSupFile = new File(convertSupText.getText());
+            if (!convertSupFile.exists()) {
+                errs.add("You need to select a supplemental file to convert");
+            }
+        }
         return errs;
     }
 
@@ -153,6 +163,7 @@ public class QuadUIWindow extends Window implements Bindable {
         convertIndicator    = (ActivityIndicator) ns.get("convertIndicator");
         convertButton       = (PushButton) ns.get("convertButton");
         browseToConvert     = (PushButton) ns.get("browseConvertButton");
+        browseToConvertSup  = (PushButton) ns.get("browseConvertSupButton");
         browseOutputDir     = (PushButton) ns.get("browseOutputButton");
         browseLinkFile      = (PushButton) ns.get("browseLinkButton");
         browseFieldFile     = (PushButton) ns.get("browseFieldButton");
@@ -166,10 +177,12 @@ public class QuadUIWindow extends Window implements Bindable {
         lblStrategy         = (Label) ns.get("strategyLabel");
         linkBP              = (BoxPane) ns.get("linkBP");
         convertText         = (TextInput) ns.get("convertText");
+        convertSupText      = (TextInput) ns.get("convertSupText");
         outputText          = (TextInput) ns.get("outputText");
         linkText            = (TextInput) ns.get("linkText");
         fieldText           = (TextInput) ns.get("fieldText");
         strategyText        = (TextInput) ns.get("strategyText");
+        convertSupCB        = (Checkbox) ns.get("convertSupCB");
         modelApsim          = (Checkbox) ns.get("model-apsim");
         modelDssat          = (Checkbox) ns.get("model-dssat");
         modelStics          = (Checkbox) ns.get("model-stics");
@@ -247,14 +260,43 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File convertFile = browse.getSelectedFile();
                             convertText.setText(convertFile.getPath());
+                            pref.put("last_input_raw", convertFile.getPath());
                             if (outputText.getText().contains("")) {
                                 try {
                                     outputText.setText(convertFile.getCanonicalFile().getParent());
-                                    pref.put("last_input_raw", convertFile.getPath());
                                 } catch (IOException ex) {
                                 }
                             }
                             SetAutoDomeApplyMsg();
+                        }
+                    }
+                });
+            }
+        });
+
+        browseToConvertSup.getButtonPressListeners().add(new ButtonPressListener() {
+            @Override
+            public void buttonPressed(Button button) {
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_raw_sup");
+                browse.setDisabledFileFilter(new Filter<File>() {
+
+                    @Override
+                    public boolean include(File file) {
+                        return (file.isFile()
+                                && (!file.getName().toLowerCase().endsWith(".csv")
+                                && (!file.getName().toLowerCase().endsWith(".zip")
+                                && (!file.getName().toLowerCase().endsWith(".json")
+                                && (!file.getName().toLowerCase().endsWith(".aceb")
+                                && (!file.getName().toLowerCase().endsWith(".agmip")))))));
+                    }
+                });
+                browse.open(QuadUIWindow.this, new SheetCloseListener() {
+                    @Override
+                    public void sheetClosed(Sheet sheet) {
+                        if (sheet.getResult()) {
+                            File convertSupFile = browse.getSelectedFile();
+                            convertSupText.setText(convertSupFile.getPath());
+                            pref.put("last_input_raw_sup", convertSupFile.getPath());
                         }
                     }
                 });
@@ -405,6 +447,15 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         });
 
+        convertSupCB.getButtonStateListeners().add(new ButtonStateListener() {
+            @Override
+            public void stateChanged(Button button, State state) {
+                isMultiInput = state.equals(State.UNSELECTED);
+                convertSupText.setVisible(isMultiInput);
+                browseToConvertSup.setVisible(isMultiInput);
+            }
+        });
+
         optionLinkage.getButtonStateListeners().add(new ButtonStateListener() {
             @Override
             public void stateChanged(Button button, State state) {
@@ -446,128 +497,78 @@ public class QuadUIWindow extends Window implements Bindable {
         enableConvertIndicator(true);
         txtStatus.setText("Importing data...");
         LOG.info("Importing data...");
-        if (convertText.getText().endsWith(".json")) {
-            try {
-                // Load the JSON representation into memory and send it down the line.
-                String json = new Scanner(new File(convertText.getText()), "UTF-8").useDelimiter("\\A").next();
-                HashMap data = fromJSON(json);
+        TranslateFromTask task;
+        if (isMultiInput) {
+            task = new TranslateFromTask(convertText.getText(), convertSupText.getText());
+        } else {
+            task = new TranslateFromTask(convertText.getText());
+        }
+        TaskListener<HashMap> listener = new TaskListener<HashMap>() {
 
-                // Check if the data has been applied with DOME.
-                boolean isDomeApplied = false;
-                ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
-                for (HashMap exp : exps) {
-                    if (MapUtil.getValueOr(exp, "dome_applied", "").equals("Y")) {
-                        isDomeApplied = true;
-                        break;
-                    }
-                }
-                if (exps.isEmpty()) {
-                    ArrayList<HashMap> soils = MapUtil.getObjectOr(data, "soils", new ArrayList());
-                    ArrayList<HashMap> weathers = MapUtil.getObjectOr(data, "weathers", new ArrayList());
-                    for (HashMap soil : soils) {
-                        if (MapUtil.getValueOr(soil, "dome_applied", "").equals("Y")) {
-                            isDomeApplied = true;
-                            break;
-                        }
-                    }
-                    if (!isDomeApplied) {
-                        for (HashMap wth : weathers) {
-                            if (MapUtil.getValueOr(wth, "dome_applied", "").equals("Y")) {
+            @Override
+            public void taskExecuted(Task<HashMap> t) {
+                HashMap data = t.getResult();
+                if (!data.containsKey("errors")) {
+                    modelSpecFiles = (HashMap) data.remove("ModelSpec");
+
+                    // Dump input data into aceb format
+                    if (isMultiInput) {
+                        dumpToAceb(data);
+                    } else if (convertText.getText().toLowerCase().endsWith(".json")) {
+                        // Check if the data has been applied with DOME.
+                        boolean isDomeApplied = false;
+                        ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
+                        for (HashMap exp : exps) {
+                            if (MapUtil.getValueOr(exp, "dome_applied", "").equals("Y")) {
                                 isDomeApplied = true;
                                 break;
                             }
                         }
-                    }
-                }
-                // If it has not been applied with DOME, then dump to ACEB
-                if (!isDomeApplied) {
-                    dumpToAceb(data);
-                }
-                if (mode.equals("none")) {
-                    toOutput(data, null);
-                } else {
-                    LOG.info("Attempting to apply a new DOME");
-                    applyDome(data, mode);
-                }
-            } catch (Exception ex) {
-                LOG.error(getStackTrace(ex));
-            }
-        } else if (convertText.getText().endsWith(".aceb")) {
-            try {
-                // Load the ACE Binay file into memory and transform it to old JSON format and send it down the line.
-                AceDataset ace = AceParser.parseACEB(new File(convertText.getText()));
-                ace.linkDataset();
-//                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-//                AceGenerator.generate(baos, acebData, false);
-//                HashMap data = fromJSON(baos.toString());
-//                baos.close();
-
-                HashMap data = new HashMap();
-                ArrayList<HashMap> arr;
-                // Experiments
-                arr = new ArrayList();
-                for (AceExperiment exp : ace.getExperiments()) {
-                    arr.add(JSONAdapter.fromJSON(new String(exp.rebuildComponent())));
-                }
-                if (!arr.isEmpty()) {
-                    data.put("experiments", arr);
-                }
-                // Soils
-                arr = new ArrayList();
-                for (AceSoil soil : ace.getSoils()) {
-                    arr.add(JSONAdapter.fromJSON(new String(soil.rebuildComponent())));
-                }
-                if (!arr.isEmpty()) {
-                    data.put("soils", arr);
-                }
-                // Weathers
-                arr = new ArrayList();
-                for (AceWeather wth : ace.getWeathers()) {
-                    arr.add(JSONAdapter.fromJSON(new String(wth.rebuildComponent())));
-                }
-                if (!arr.isEmpty()) {
-                    data.put("weathers", arr);
-                }
-
-                if (mode.equals("none")) {
-                    toOutput(data, null);
-                } else {
-                    LOG.info("Attempting to apply a new DOME");
-                    applyDome(data, mode);
-                }
-            } catch (Exception ex) {
-                LOG.error(getStackTrace(ex));
-            }
-        } else {
-            TranslateFromTask task = new TranslateFromTask(convertText.getText());
-            TaskListener<HashMap> listener = new TaskListener<HashMap>() {
-
-                @Override
-                public void taskExecuted(Task<HashMap> t) {
-                    HashMap data = t.getResult();
-                    if (!data.containsKey("errors")) {
-                        modelSpecFiles = (HashMap) data.remove("ModelSpec");
-                        dumpToAceb(data);
-                        if (mode.equals("none")) {
-                            toOutput(data, null);
-                        } else {
-                            applyDome(data, mode);
+                        if (exps.isEmpty()) {
+                            ArrayList<HashMap> soils = MapUtil.getObjectOr(data, "soils", new ArrayList());
+                            ArrayList<HashMap> weathers = MapUtil.getObjectOr(data, "weathers", new ArrayList());
+                            for (HashMap soil : soils) {
+                                if (MapUtil.getValueOr(soil, "dome_applied", "").equals("Y")) {
+                                    isDomeApplied = true;
+                                    break;
+                                }
+                            }
+                            if (!isDomeApplied) {
+                                for (HashMap wth : weathers) {
+                                    if (MapUtil.getValueOr(wth, "dome_applied", "").equals("Y")) {
+                                        isDomeApplied = true;
+                                        break;
+                                    }
+                                }
+                            }
                         }
-                    } else {
-                        Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
-                        enableConvertIndicator(false);
+                        // If it has not been applied with DOME, then dump to ACEB
+                        if (!isDomeApplied) {
+                            dumpToAceb(data);
+                        }
+                    } else if (!convertText.getText().toLowerCase().endsWith(".aceb")) {
+                        dumpToAceb(data);
                     }
-                }
 
-                @Override
-                public void executeFailed(Task<HashMap> arg0) {
-                    Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
-                    LOG.error(getStackTrace(arg0.getFault()));
+                    if (mode.equals("none")) {
+                        toOutput(data, null);
+                    } else {
+                        applyDome(data, mode);
+                    }
+                } else {
+                    Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
                     enableConvertIndicator(false);
                 }
-            };
-            task.execute(new TaskAdapter<HashMap>(listener));
-        }
+            }
+
+            @Override
+            public void executeFailed(Task<HashMap> arg0) {
+                Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
+                LOG.error(getStackTrace(arg0.getFault()));
+                enableConvertIndicator(false);
+            }
+        };
+        task.execute(new TaskAdapter<HashMap>(listener));
     }
 
     protected void dumpToAceb(HashMap map) {
