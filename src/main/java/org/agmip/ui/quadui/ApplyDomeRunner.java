@@ -9,11 +9,11 @@ import org.slf4j.LoggerFactory;
 
 public class ApplyDomeRunner implements Runnable {
 
-    private ArrayList<Engine> engines;
-    private HashMap entry;
-    private boolean noExpMode;
-    private String mode;
-    private static Logger LOG = LoggerFactory.getLogger(ApplyDomeRunner.class);
+    private final ArrayList<Engine> engines;
+    private final HashMap entry;
+    private final boolean noExpMode;
+    private final String mode;
+    private static final Logger LOG = LoggerFactory.getLogger(ApplyDomeRunner.class);
 
     public ApplyDomeRunner(ArrayList<Engine> engines, HashMap entry, boolean noExpMode, String mode) {
         this.engines = engines;
