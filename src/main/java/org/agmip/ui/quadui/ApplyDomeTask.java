@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,13 +27,13 @@ import org.slf4j.LoggerFactory;
 public class ApplyDomeTask extends Task<HashMap> {
 
     private static Logger log = LoggerFactory.getLogger(ApplyDomeTask.class);
-    private HashMap<String, HashMap<String, Object>> ovlDomes = new HashMap<String, HashMap<String, Object>>();
-    private HashMap<String, HashMap<String, Object>> stgDomes = new HashMap<String, HashMap<String, Object>>();
+    private final HashMap<String, HashMap<String, Object>> ovlDomes = new HashMap<String, HashMap<String, Object>>();
+    private final HashMap<String, HashMap<String, Object>> stgDomes = new HashMap<String, HashMap<String, Object>>();
     private HashMap<String, Object> linkDomes = new HashMap<String, Object>();
     private HashMap<String, String> ovlLinks = new HashMap<String, String>();
     private HashMap<String, String> stgLinks = new HashMap<String, String>();
-    private LinkedHashMap<String, String> orgOvlLinks = new LinkedHashMap<String, String>();
-    private LinkedHashMap<String, String> orgStgLinks = new LinkedHashMap<String, String>();
+    private final HashMap<String, String> ovlNewDomeIdMap = new HashMap<String, String>();
+    private final HashMap<String, String> stgNewDomeIdMap = new HashMap<String, String>();
 //    private HashMap<String, ArrayList<String>> wthLinks = new HashMap<String, ArrayList<String>>();
 //    private HashMap<String, ArrayList<String>> soilLinks = new HashMap<String, ArrayList<String>>();
     private HashMap source;
@@ -158,30 +157,62 @@ public class ApplyDomeTask extends Task<HashMap> {
         return linkIds;
     }
 
-    private void setOriLinkIds(HashMap entry, String domeIds, String domeType) {
-        HashMap<String, String> links;
+    private void reviseDomeIds(HashMap entry, String domeIds, String domeType) {
+        HashMap<String, HashMap<String, Object>> domes;
+        HashMap<String, String> domeClimIdMap;
+        String domeName;
         if (domeType.equals("strategy")) {
-            links = orgStgLinks;
+            domes = stgDomes;
+            domeClimIdMap = ovlNewDomeIdMap;
+            domeName = "seasonal_strategy";
         } else if (domeType.equals("overlay")) {
-            links = orgOvlLinks;
+            domes = ovlDomes;
+            domeClimIdMap = stgNewDomeIdMap;
+            domeName = "field_overlay";
         } else {
             return;
         }
-        String exname = MapUtil.getValueOr(entry, "exname", "");
-        if (exname.matches(".+_\\d+__\\d+$") && "Y".equals(MapUtil.getValueOr(entry, "seasonal_dome_applied", ""))) {
-            exname = exname.replaceAll("__\\d+$", "");
-        }
-        if (!exname.equals("")) {
-            links.put("EXNAME_" + exname, domeIds);
-        } else {
-            String soil_id = MapUtil.getValueOr(entry, "soil_id", "");
-            String wst_id = MapUtil.getValueOr(entry, "wst_id", "");
-            if (!soil_id.equals("")) {
-                links.put("SOIL_ID_" + soil_id, domeIds);
-            } else if (!wst_id.equals("")) {
-                links.put("WST_ID_" + wst_id, domeIds);
+        
+        StringBuilder newDomeIds = new StringBuilder();
+        for (String domeId : domeIds.split("[|]")) {
+            String[] metas = domeId.split("-");
+            if (metas.length < 7) {
+                if (domeClimIdMap.containsKey(domeId)) {
+                    domeId = domeClimIdMap.get(domeId);
+                } else {
+                    String climId = "";
+                    HashMap<String, Object> dome = MapUtil.getObjectOr(domes, domeId, new HashMap());
+                    // Only auto-fix the clim_id for seasonal strategy DOME
+                    if (!domeType.equals("overlay")) {
+                        climId = MapUtil.getValueOr(entry, "clim_id", "").toUpperCase();
+                        if (!dome.isEmpty()) {
+                            ArrayList<HashMap<String, String>> rules = DomeUtil.getRules(dome);
+                            for (HashMap<String, String> rule : rules) {
+                                String var = MapUtil.getValueOr(rule, "variable", "").toLowerCase();
+                                if (var.equals("clim_id")) {
+                                    climId = MapUtil.getValueOr(rule, "args", climId).toUpperCase();
+                                }
+                            }
+                        }
+                    }
+                    
+                    StringBuilder newDomeId = new StringBuilder();
+                    for (int i = 0; i < metas.length - 1; i++) {
+                        newDomeId.append(metas[i]).append("-");
+                    }
+                    newDomeId.append(climId).append("-").append(metas[metas.length - 1]);
+                    domeClimIdMap.put(domeId, newDomeId.toString());
+                    domeId = newDomeId.toString();
+                    DomeUtil.updateMetaInfo(dome, domeId);
+                }
             }
+            newDomeIds.append(domeId).append("|");
         }
+        
+        if (newDomeIds.charAt(newDomeIds.length() - 1) == '|') {
+            newDomeIds.deleteCharAt(newDomeIds.length() - 1); 
+        }
+        entry.put(domeName, newDomeIds.toString());
     }
 
     private void loadDomeFile(String fileName, HashMap<String, HashMap<String, Object>> domes) {
@@ -352,8 +383,9 @@ public class ApplyDomeTask extends Task<HashMap> {
                     entry.put("seasonal_strategy", domeName);
                     log.debug("Apply seasonal strategy domes from link csv: {}", domeName);
                 }
+                entry.remove("seasonal_strategy");
 
-                setOriLinkIds(entry, domeName, "strategy");
+                reviseDomeIds(entry, domeName, "strategy");
                 String tmp[] = domeName.split("[|]");
                 String strategyName;
                 if (tmp.length > 1) {
@@ -459,7 +491,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                 log.debug("Apply field overlay domes from link csv: {}", domeName);
             }
 
-            setOriLinkIds(entry, domeName, "overlay");
+            reviseDomeIds(entry, domeName, "overlay");
             String soilId = MapUtil.getValueOr(entry, "soil_id", "");
             String wstId = MapUtil.getValueOr(entry, "wst_id", "");
             String climId = MapUtil.getValueOr(entry, "clim_id", "");
@@ -564,7 +596,7 @@ public class ApplyDomeTask extends Task<HashMap> {
         executor.shutdown();
         while (!executor.isTerminated()) {
         }
-        executor = null;
+//        executor = null;
 
         if (noExpMode) {
             output.put("domeoutput", source);

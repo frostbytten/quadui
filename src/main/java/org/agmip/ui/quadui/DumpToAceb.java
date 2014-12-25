@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import org.agmip.ace.io.AceGenerator;
+import org.agmip.dome.DomeUtil;
 import org.agmip.translators.csv.AlnkOutput;
 import static org.agmip.util.JSONAdapter.toJSON;
 import org.agmip.util.MapUtil;
@@ -93,7 +94,7 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
         for (String domeId : domes.keySet()) {
             String hash = generateHCId(domes.get(domeId)).toString();
             domeHashData.put(hash, domes.get(domeId));
-            domeIdHashMap.put(domeId, hash);
+            domeIdHashMap.put(DomeUtil.generateDomeName(domes.get(domeId)), hash);
         }
     }
     
