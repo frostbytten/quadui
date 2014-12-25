@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import org.agmip.core.types.TranslatorOutput;
 
 import com.google.common.io.Files;
+import java.util.Date;
+import org.agmip.common.Functions;
 
 
 public class TranslateRunner implements Runnable {
@@ -36,13 +38,17 @@ public class TranslateRunner implements Runnable {
     @Override
     public void run() {
         LOG.debug("Starting new thread!");
+        long timer = System.currentTimeMillis();
         try {
             translator.writeFile(outputDirectory, data);
             if (compress) {
                 compressOutput(outputDirectory, model);
             }
+            timer = System.currentTimeMillis() - timer;
+            LOG.info("{} Translator Finished in {}s.", model, timer/1000.0);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("{} translator got an error.", model);
+            LOG.error(Functions.getStackTrace(e));
         }
     }
 

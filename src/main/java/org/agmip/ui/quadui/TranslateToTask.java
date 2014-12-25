@@ -12,18 +12,19 @@ import org.agmip.core.types.TranslatorOutput;
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskExecutionException;
 
-import org.agmip.translators.apsim.ApsimOutput;
+import org.agmip.translators.apsim.ApsimWriter;
 import org.agmip.translators.dssat.DssatControllerOutput;
 import org.agmip.translators.dssat.DssatWeatherOutput;
 import org.agmip.acmo.util.AcmoUtil;
+import org.agmip.common.Functions;
+import org.agmip.translators.cropgrownau.CropGrowNAUOutput;
 import org.agmip.translators.stics.SticsOutput;
+import org.agmip.translators.wofost.WofostOutputController;
 
 // import com.google.common.io.Files;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.agmip.util.JSONAdapter.toJSON;
 
 public class TranslateToTask extends Task<String> {
 
@@ -32,15 +33,19 @@ public class TranslateToTask extends Task<String> {
     private ArrayList<String> weatherList, soilList;
     private String destDirectory;
     private boolean compress;
+    private HashMap<String, String> domeIdHashMap;
+    private HashMap<String, HashMap> modelSpecFiles;
     private static Logger LOG = LoggerFactory.getLogger(TranslateToTask.class);
 
-    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress) {
+    public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress, HashMap<String, String> domeIdHashMap, HashMap<String, HashMap> modelSpecFiles) {
         this.data = data;
         this.destDirectory = destDirectory;
         this.translateList = new ArrayList<String>();
         this.weatherList = new ArrayList<String>();
         this.soilList = new ArrayList<String>();
         this.compress = compress;
+        this.domeIdHashMap = domeIdHashMap;
+        this.modelSpecFiles = modelSpecFiles;
         for (String trType : translateList) {
             if (!trType.equals("JSON")) {
                 this.translateList.add(trType);
@@ -67,7 +72,18 @@ public class TranslateToTask extends Task<String> {
                     // Generate the ACMO here (pre-generation) so we know what
                     // we should get out of everything.
                     File destDir = createModelDestDirectory(destDirectory, tr);
-                    AcmoUtil.writeAcmo(destDir.toString(), data, tr.toLowerCase());
+                    AcmoUtil.writeAcmo(destDir.toString(), data, tr.toLowerCase(), domeIdHashMap);
+                    // Dump the model specific files into corresponding model folder
+                    if (modelSpecFiles != null) {
+                        HashMap modelFiles = (HashMap) modelSpecFiles.get(tr.toLowerCase());
+                        if (modelFiles != null && !modelFiles.isEmpty()) {
+                            try {
+                                new ModelFileDumperOutput().writeFile(destDir.toString(), modelFiles);
+                            } catch (Exception e) {
+                                LOG.error(Functions.getStackTrace(e));
+                            }
+                        }
+                    }
                     if (data.size() == 1 && data.containsKey("weather")) {
                         LOG.info("Running in weather only mode");
                         submitTask(executor, tr, data, destDir, true, compress);
@@ -108,10 +124,16 @@ public class TranslateToTask extends Task<String> {
             }
         } else if (trType.equals("APSIM")) {
             LOG.info("APSIM Translator Started");
-            translator = new ApsimOutput();
+            translator = new ApsimWriter();
         } else if (trType.equals("STICS")) {
             LOG.info("STICS Translator Started");
             translator = new SticsOutput();
+        } else if (trType.equals("WOFOST")) {
+            LOG.info("WOFOST Translator Started");
+            translator = new WofostOutputController();
+        } else if (trType.equals("CropGrow-NAU")) {
+            LOG.info("CropGrow-NAU Translator Started");
+            translator = new CropGrowNAUOutput();
         }
         LOG.debug("Translating with :"+translator.getClass().getName());
         Runnable thread = new TranslateRunner(translator, data, path.toString(), trType, compress);
@@ -123,7 +145,7 @@ public class TranslateToTask extends Task<String> {
         File originalDestDir = new File(basePath+File.separator+model);
         File destDirectory = originalDestDir;
         int i=0;
-        while (destDirectory.exists()) {
+        while (destDirectory.exists() && destDirectory.listFiles().length > 0) {
             i++;
             destDirectory = new File(originalDestDir.toString()+"-"+i);
         }
