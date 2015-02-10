@@ -99,7 +99,7 @@ public class DumpToJson extends Task<String> {
         if (climId.equals("")) {
             return base + dome;
         } else {
-            return ret + "-" + climId + adp;
+            return ret + "-" + climId + adp + dome;
         }
     }
 
