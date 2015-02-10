@@ -1,8 +1,11 @@
 package org.agmip.ui.quadui;
 
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -21,10 +24,11 @@ public class ModelFileDumperOutput implements TranslatorOutput {
         for (Entry file : files) {
             String fileName = (String) file.getKey();
             char[] content = (char[]) file.getValue();
-            FileWriter fw = new FileWriter(outputDirectory + File.separator + fileName);
-            fw.write(content);
-            fw.flush();
-            fw.close();
+            OutputStream out = new FileOutputStream(outputDirectory + File.separator + fileName);
+            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(out, "utf-8"));
+            bw.write(content);
+            bw.flush();
+            bw.close();
         }
     }
 }
