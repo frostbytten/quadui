@@ -414,6 +414,22 @@ public class QuadCmdLine {
         if (!isDome) {
             generateId(map);
         }
+        String filePath;
+        if (!isDome) {
+            filePath = convertPath;
+        } else if (mode.equals("strategy")) {
+            filePath = strategyPath;
+        } else if (mode.equals("field")) {
+            filePath = fieldPath;
+        } else {
+            filePath = convertPath;
+        }
+        String filePathL;
+        if (linkPath.trim().equals("")) {
+            filePathL = convertPath;
+        } else {
+            filePathL = linkPath;
+        }
         final String fileName = new File(convertPath).getName();
         final HashMap result = (HashMap) map.get("domeoutput");
         boolean isSkipped = false;
@@ -438,7 +454,7 @@ public class QuadCmdLine {
         if (isSkippedForLink) {
             LOG.info("Skip generating ACE Binary file for linkage information used for {} ...", fileName);
         }
-        DumpToAceb task = new DumpToAceb(convertPath, outputPath, map, isDome, isSkipped, isSkippedForLink);
+        DumpToAceb task = new DumpToAceb(filePath, filePathL, outputPath, map, isDome, isSkipped, isSkippedForLink);
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
             public void taskExecuted(Task<HashMap<String, String>> t) {

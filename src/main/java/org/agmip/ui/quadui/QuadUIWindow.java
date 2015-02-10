@@ -461,7 +461,7 @@ public class QuadUIWindow extends Window implements Bindable {
             @Override
             public void stateChanged(Button button, State state) {
                 if (state.equals(State.UNSELECTED)) {
-                    if (!runType.getSelection().getName().equals("overlayNone")) {
+                    if (!mode.equals("none")) {
                         enableLinkFile(true);
                     }
                 } else {
@@ -582,12 +582,27 @@ public class QuadUIWindow extends Window implements Bindable {
         if (!isDome) {
             generateId(map);
         }
-        String filePath = convertText.getText();
-        final String fileName = new File(filePath).getName();
+        String filePath;
+        if (!isDome) {
+            filePath = convertText.getText();
+        } else if (mode.equals("strategy")) {
+            filePath = strategyText.getText();
+        } else if (mode.equals("field")) {
+            filePath = fieldText.getText();
+        } else {
+            filePath = convertText.getText();
+        }
+        String filePathL;
+        if (linkText.getText().trim().equals("")) {
+            filePathL = convertText.getText();
+        } else {
+            filePathL = linkText.getText();
+        }
+        final String fileName = new File(convertText.getText()).getName();
         final HashMap result = (HashMap) map.get("domeoutput");
         boolean isSkipped = false;
         boolean isSkippedForLink = false;
-        if (!isDome && filePath.toUpperCase().endsWith(".ACEB")) {
+        if (!isDome && convertText.getText().toUpperCase().endsWith(".ACEB")) {
             return;
         } else if (isDome && fieldText.getText().toUpperCase().endsWith(".DOME") && strategyText.getText().toUpperCase().endsWith(".DOME")) {
             isSkipped = true;
@@ -609,7 +624,7 @@ public class QuadUIWindow extends Window implements Bindable {
             txtStatus.setText("Skip generating ALNK file for " + fileName + " ...");
             LOG.info("Skip generating ALNK file for {} ...", fileName);
         }
-        DumpToAceb task = new DumpToAceb(filePath, outputText.getText(), map, isDome, isSkipped, isSkippedForLink);
+        DumpToAceb task = new DumpToAceb(filePath, filePathL, outputText.getText(), map, isDome, isSkipped, isSkippedForLink);
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
             public void taskExecuted(Task<HashMap<String, String>> t) {
