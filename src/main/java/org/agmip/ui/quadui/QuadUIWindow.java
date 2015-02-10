@@ -87,7 +87,6 @@ public class QuadUIWindow extends Window implements Bindable {
     private TextInput linkText = null;
     private TextInput fieldText = null;
     private TextInput strategyText = null;
-    private BoxPane linkBP = null;
     private ArrayList<Checkbox> checkboxGroup = new ArrayList<Checkbox>();
     private ArrayList<String> errors = new ArrayList<String>();
     private Properties versionProperties = new Properties();
@@ -174,7 +173,6 @@ public class QuadUIWindow extends Window implements Bindable {
         lblLink             = (Label) ns.get("linkLabel");
         lblField            = (Label) ns.get("fieldLabel");
         lblStrategy         = (Label) ns.get("strategyLabel");
-        linkBP              = (BoxPane) ns.get("linkBP");
         convertText         = (TextInput) ns.get("convertText");
         convertSupText      = (TextInput) ns.get("convertSupText");
         outputText          = (TextInput) ns.get("outputText");
@@ -432,13 +430,17 @@ public class QuadUIWindow extends Window implements Bindable {
                     enableStrategyOverlay(false);
                     mode = "none";
                 } else if (current.equals("overlayField")) {
-                    enableLinkFile(true);
+                    if (optionLinkage.isSelected()) {
+                        enableLinkFile(true);
+                    }
                     enableFieldOverlay(true);
                     enableStrategyOverlay(false);
                     mode = "field";
 
                 } else if (current.equals("overlaySeasonal")) {
-                    enableLinkFile(true);
+                    if (optionLinkage.isSelected()) {
+                        enableLinkFile(true);
+                    }
                     enableFieldOverlay(true);
                     enableStrategyOverlay(true);
                     mode = "strategy";
@@ -459,9 +461,11 @@ public class QuadUIWindow extends Window implements Bindable {
             @Override
             public void stateChanged(Button button, State state) {
                 if (state.equals(State.UNSELECTED)) {
-                    linkBP.setVisible(true);
+                    if (!runType.getSelection().getName().equals("overlayNone")) {
+                        enableLinkFile(true);
+                    }
                 } else {
-                    linkBP.setVisible(false);
+                    enableLinkFile(false);
                     linkText.setText("");
                     SetAutoDomeApplyMsg();
                 }
