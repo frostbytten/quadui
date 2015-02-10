@@ -70,10 +70,10 @@
         </BoxPane>
         <BoxPane bxml:id="linkBP" orientation="vertical" styles="{padding: 6}">
           <BoxPane orientation="horizontal">
-            <Label bxml:id="linkLabel" text="DOME Link File:" styles="{font:{bold:true}}"/>
+            <Label bxml:id="linkLabel" text="DOME Link File:" styles="{font:{bold:true}}" enabled="false"/>
             <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="This DOME file provides linkage between source data and DOMEs" />
           </BoxPane>
-          <BoxPane orientation="horizontal"><TextInput bxml:id="linkText" editable="false"/><PushButton bxml:id="browseLinkButton" buttonData="Browse"/></BoxPane>
+          <BoxPane orientation="horizontal"><TextInput bxml:id="linkText" editable="false" enabled="false"/><PushButton bxml:id="browseLinkButton" buttonData="Browse" enabled="false"/></BoxPane>
           <BoxPane orientation="horizontal">
             <Checkbox bxml:id="option-linkage" buttonData="Provide linkage file for DOME" selected="true"/>
             <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="Use extra file to provide linkage information between experiments and DOMEs" />
