@@ -395,7 +395,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                         setFailedDomeId(entry, "seasonal_dome_failed", tmp[i]);
                     }
                 }
-                strategyName = tmp[0];
+                strategyName = tmp[0].toUpperCase();
 
                 log.info("Apply DOME {} for {}", strategyName, MapUtil.getValueOr(entry, "exname", MapUtil.getValueOr(entry, "soil_id", MapUtil.getValueOr(entry, "wst_id", "<Unknow>"))));
                 log.debug("Looking for ss: {}", strategyName);
