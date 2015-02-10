@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Properties;
-import java.util.Scanner;
 import java.util.prefs.Preferences;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -617,6 +616,8 @@ public class QuadUIWindow extends Window implements Bindable {
                 }
                 if (isDome) {
                     reviseData(result);
+                    toOutput(result, t.getResult());
+                } else if (acebOnly) {
                     toOutput(result, t.getResult());
                 }
             }
