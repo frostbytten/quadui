@@ -816,6 +816,7 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         }
         txtStatus.setText("Generating model input files...");
+        domeIdHashMap = saveDomeHashedIds(map, domeIdHashMap);
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {
             models.add("JSON");
@@ -894,6 +895,78 @@ public class QuadUIWindow extends Window implements Bindable {
             }
             toOutput2(models, map, domeIdHashMap);
         }
+    }
+
+    private HashMap<String, String> saveDomeHashedIds(HashMap map, HashMap<String, String> domeIdHashMap) {
+        HashMap<String, String> ret = domeIdHashMap;
+        if (domeIdHashMap == null) {
+            ret = new HashMap();
+            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "experiments", new ArrayList())));
+            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "soils", new ArrayList())));
+            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "weathers", new ArrayList())));
+            if (ret.isEmpty()) {
+                ret = null;
+            }
+        } else {
+            saveDomeHashedIds(MapUtil.getObjectOr(map, "experiments", new ArrayList()), domeIdHashMap);
+            saveDomeHashedIds(MapUtil.getObjectOr(map, "soils", new ArrayList()), domeIdHashMap);
+            saveDomeHashedIds(MapUtil.getObjectOr(map, "weathers", new ArrayList()), domeIdHashMap);
+        }
+
+        return ret;
+    }
+
+    private void saveDomeHashedIds(ArrayList<HashMap> arr, HashMap<String, String> domeIdHashMap) {
+
+        for (HashMap data : arr) {
+            if (MapUtil.getValueOr(data, "dome_applied", "").equals("Y")) {
+                if (MapUtil.getValueOr(data, "seasonal_dome_applied", "").equals("Y")) {
+                    String fieldName = MapUtil.getValueOr(data, "seasonal_strategy", "").toUpperCase();
+                    String dsid = domeIdHashMap.get(fieldName);
+                    if (dsid != null) {
+                        data.put("dsid", dsid);
+                    }
+                }
+                if (MapUtil.getValueOr(data, "rotational_dome_applied", "").equals("Y")) {
+                    String fieldName = MapUtil.getValueOr(data, "rotational_strategy", "").toUpperCase();
+                    String drid = domeIdHashMap.get(fieldName);
+                    if (drid != null) {
+                        data.put("drid", drid);
+                    }
+                }
+                if (MapUtil.getValueOr(data, "field_dome_applied", "").equals("Y")) {
+                    String fieldName = MapUtil.getValueOr(data, "field_overlay", "").toUpperCase();
+                    String doid = domeIdHashMap.get(fieldName);
+                    if (doid != null) {
+                        data.put("doid", doid);
+                    }
+                }
+            }
+        }
+    }
+
+    private HashMap<String, String> loadDomeHashedIds(ArrayList<HashMap> arr) {
+
+        HashMap<String, String> domeIdHashMap = new HashMap();
+        for (HashMap data : arr) {
+            String seasonalName = MapUtil.getValueOr(data, "seasonal_strategy", "").toUpperCase();
+            String dsid = MapUtil.getValueOr(data, "dsid", "");
+            if (!dsid.equals("") && !domeIdHashMap.containsKey(seasonalName)) {
+                domeIdHashMap.put(seasonalName, dsid);
+            }
+            String rotationalName = MapUtil.getValueOr(data, "rotational_strategy", "").toUpperCase();
+            String drid = MapUtil.getValueOr(data, "drid", "");
+            if (!drid.equals("") && !domeIdHashMap.containsKey(rotationalName)) {
+                domeIdHashMap.put(rotationalName, drid);
+            }
+            String fieldName = MapUtil.getValueOr(data, "field_overlay", "").toUpperCase();
+            String doid = MapUtil.getValueOr(data, "doid", "");
+            if (!doid.equals("") && !domeIdHashMap.containsKey(fieldName)) {
+                domeIdHashMap.put(fieldName, doid);
+            }
+        }
+        
+        return domeIdHashMap;
     }
 
     private void toOutput2(ArrayList<String> models, HashMap map, HashMap<String, String> domeIdHashMap) {
