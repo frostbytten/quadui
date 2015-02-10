@@ -75,12 +75,12 @@ public class DumpToJson extends Task<String> {
                     break;
                 }
                 String rotationalFlag = MapUtil.getValueOr(exp, "rotational_dome_applied", "");
-                if ("Y".equals(seasonalFlag)) {
+                if ("Y".equals(rotationalFlag)) {
                     dome = "-rotational_strategy";
                     break;
                 }
                 String fieldFlag = MapUtil.getValueOr(exp, "field_dome_applied", "");
-                if ("Y".equals(seasonalFlag)) {
+                if ("Y".equals(fieldFlag)) {
                     dome = "-field_overlay";
                 }
             }
