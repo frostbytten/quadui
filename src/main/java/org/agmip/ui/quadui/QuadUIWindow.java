@@ -633,10 +633,10 @@ public class QuadUIWindow extends Window implements Bindable {
                 } else {
                     LOG.info("Dump to ACE Binary for {} successfully", fileName);
                 }
-                if (isDome) {
-                    reviseData(result);
+                if (acebOnly) {
                     toOutput(result, t.getResult());
-                } else if (acebOnly) {
+                } else if (isDome) {
+                    reviseData(result);
                     toOutput(result, t.getResult());
                 }
             }
