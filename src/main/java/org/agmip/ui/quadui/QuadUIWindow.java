@@ -339,7 +339,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     public boolean include(File file) {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
-                                && (!file.getName().toLowerCase().endsWith(".zip"))
+//                                && (!file.getName().toLowerCase().endsWith(".zip"))
                                 && (!file.getName().toLowerCase().endsWith(".alnk")));
                     }
                 });
