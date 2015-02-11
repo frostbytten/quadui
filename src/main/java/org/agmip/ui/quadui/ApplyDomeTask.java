@@ -374,6 +374,10 @@ public class ApplyDomeTask extends Task<HashMap> {
             Engine generatorEngine;
             ArrayList<HashMap<String, Object>> strategyResults = new ArrayList<HashMap<String, Object>>();
             for (HashMap<String, Object> entry : flattenedData) {
+
+                // Remove observed data from input data if apply strategy DOME
+                entry.remove("observed");
+
                 if (autoApply) {
                     entry.put("seasonal_strategy", stgDomeName);
                 }
