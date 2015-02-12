@@ -479,8 +479,8 @@ public class QuadCmdLine {
                 LOG.error(getStackTrace(arg0.getFault()));
                 if (acebOnly) {
                     acebOnlyRet = false;
-                }
-                if (isDome) {
+                    toOutput(result, arg0.getResult());
+                } else if (isDome) {
                     reviseData(result);
                     toOutput(result, arg0.getResult());
                 }
