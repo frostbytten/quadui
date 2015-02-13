@@ -554,7 +554,9 @@ public class QuadUIWindow extends Window implements Bindable {
                     }
 
                     if (mode.equals("none")) {
-                        toOutput(data, null);
+                        if (!acebOnly) {
+                            toOutput(data, null);
+                        }
                     } else {
                         applyDome(data, mode);
                     }

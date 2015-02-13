@@ -367,7 +367,9 @@ public class QuadCmdLine {
                 }
 
                 if (mode.equals(DomeMode.NONE)) {
-                    toOutput(data, null);
+                    if (!acebOnly) {
+                        toOutput(data, null);
+                    }
                 } else {
                     LOG.debug("Attempting to apply a new DOME");
                     applyDome(data, mode.toString().toLowerCase());
