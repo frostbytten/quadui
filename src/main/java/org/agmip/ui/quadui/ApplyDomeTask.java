@@ -131,6 +131,7 @@ public class ApplyDomeTask extends Task<HashMap> {
         } else if (domeType.equals("overlay")) {
             links = ovlLinks;
         } else {
+            log.error("Non reconized DOME type has been deceted for {} ", id);
             return "";
         }
         if (links.isEmpty() || id.equals("")) {
@@ -692,7 +693,7 @@ public class ApplyDomeTask extends Task<HashMap> {
             maxDomeNum = 1;
         } else {
             domes = ovlDomes;
-            linkid = "field";
+            linkid = "overlay";
             domeKey = "field_overlay";
             maxDomeNum = Integer.MAX_VALUE;
         }
