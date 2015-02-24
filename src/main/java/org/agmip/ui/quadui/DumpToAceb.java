@@ -6,6 +6,7 @@ import com.google.common.hash.Hashing;
 import com.rits.cloning.Cloner;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import org.agmip.ace.io.AceGenerator;
 import org.agmip.dome.DomeUtil;
@@ -18,7 +19,7 @@ import org.apache.pivot.util.concurrent.TaskExecutionException;
 public class DumpToAceb extends Task<HashMap<String, String>> {
 
     private HashMap data;
-    private String fileName, directoryName;
+    private String fileName, directoryName, linkFileName;
     private boolean isDome;
     private boolean isSkipped;
     private boolean isSkippedForLink;
@@ -26,8 +27,9 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
     private HashMap domeIdHashMap = new HashMap();
     private HashMap domeHashData = null;
 
-    public DumpToAceb(String file, String dirName, HashMap data, boolean isDome, boolean isSkipped, boolean isSkippedForLink) {
+    public DumpToAceb(String file, String fileL, String dirName, HashMap data, boolean isDome, boolean isSkipped, boolean isSkippedForLink) {
         this.fileName = file;
+        this.linkFileName = fileL;
         this.directoryName = dirName;
         Cloner cloner = new Cloner();
         this.data = cloner.deepClone(data);
@@ -38,22 +40,18 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
 
     @Override
     public HashMap<String, String> execute() throws TaskExecutionException {
-        File file = new File(fileName);
-        String[] base = file.getName().split("\\.(?=[^\\.]+$)");
+        String base = getBaseFileName(fileName);
+        String baseL = getBaseFileName(linkFileName);
         String outputAceb;
         String ext;
         if (isDome) {
-            if (data.containsKey("stgDomes")) {
-                outputAceb = directoryName + "/" + base[0] + "_All_DOMEs.dome";
-            } else {
-                outputAceb = directoryName + "/" + base[0] + "_OverlayOnly_DOMEs.dome";
-            }
+            outputAceb = directoryName + "/" + getDomeName(base, baseL) + ".dome";
             ext = ".dome";
         } else {
-            outputAceb = directoryName + "/" + base[0] + ".aceb";
+            outputAceb = directoryName + "/" + getAcebName(data, base, baseL) + ".aceb";
             ext = ".aceb";
         }
-        file = new File(outputAceb);
+        File file = new File(outputAceb);
         int count = 1;
         while (file.isFile() && !file.canWrite()) {
             file = new File(file.getPath().replaceAll(".+_\\d*" + ext, "_" + count + ext));
@@ -76,7 +74,7 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
                     AceGenerator.generateACEB(file, toJSON(domeHashData));
                 }
                 if (!isSkippedForLink) {
-                    file = new File(directoryName + "/" + base[0] + "_Linkage.alnk");
+                    file = new File(directoryName + "/" + baseL + ".alnk");
                     AlnkOutput writer = new AlnkOutput();
                     writer.writeFile(file.getPath(), MapUtil.getObjectOr(data, "domeoutput", new HashMap()));
                 }
@@ -100,5 +98,57 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
     
     private HashCode generateHCId(HashMap data) throws IOException {
         return hf.newHasher().putBytes(toJSON(data).getBytes("UTF-8")).hash();
+    }
+    
+    private String getDomeName(String base, String baseL) {
+        if (!base.matches(".+-[Aa]\\d+$") && baseL.matches(".+-[Aa]\\d+$")) {
+            return base + baseL.substring(baseL.lastIndexOf("-"));
+        } else {
+            return base;
+        }
+    }
+
+    private String getAcebName(HashMap data, String base, String baseL) {
+        String ret;
+        String adp = "";
+        if (base.matches(".+-[Aa]\\d+$")) {
+            adp = base.substring(base.lastIndexOf("-"));
+            ret = base.substring(0, base.lastIndexOf("-"));
+        } else if (baseL.matches(".+-[Aa]\\d+$")) {
+            adp = baseL.substring(baseL.lastIndexOf("-"));
+            ret = base;
+        } else {
+            ret = base;
+        }
+
+        String climId = "";
+        ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
+        for (HashMap exp : exps) {
+            climId = MapUtil.getValueOr(exp, "clim_id", "");
+            if (!climId.equals("")) {
+                break;
+            }
+        }
+        if (climId.equals("")) {
+            ArrayList<HashMap> wths = MapUtil.getObjectOr(data, "weathers", new ArrayList());
+            for (HashMap wth : wths) {
+                climId = MapUtil.getValueOr(wth, "clim_id", "");
+                if (!climId.equals("")) {
+                    break;
+                }
+            }
+        }
+
+        if (climId.equals("")) {
+            return base;
+        } else {
+            return ret + "-" + climId + adp;
+        }
+    }
+
+    private String getBaseFileName(String f) {
+        File file = new File(f);
+        String[] base = file.getName().split("\\.(?=[^\\.]+$)");
+        return base[0];
     }
 }

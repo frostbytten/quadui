@@ -367,7 +367,9 @@ public class QuadCmdLine {
                 }
 
                 if (mode.equals(DomeMode.NONE)) {
-                    toOutput(data, null);
+                    if (!acebOnly) {
+                        toOutput(data, null);
+                    }
                 } else {
                     LOG.debug("Attempting to apply a new DOME");
                     applyDome(data, mode.toString().toLowerCase());
@@ -414,6 +416,22 @@ public class QuadCmdLine {
         if (!isDome) {
             generateId(map);
         }
+        String filePath;
+        if (!isDome) {
+            filePath = convertPath;
+        } else if (mode.equals("strategy")) {
+            filePath = strategyPath;
+        } else if (mode.equals("field")) {
+            filePath = fieldPath;
+        } else {
+            filePath = convertPath;
+        }
+        String filePathL;
+        if (linkPath.trim().equals("")) {
+            filePathL = convertPath;
+        } else {
+            filePathL = linkPath;
+        }
         final String fileName = new File(convertPath).getName();
         final HashMap result = (HashMap) map.get("domeoutput");
         boolean isSkipped = false;
@@ -438,7 +456,7 @@ public class QuadCmdLine {
         if (isSkippedForLink) {
             LOG.info("Skip generating ACE Binary file for linkage information used for {} ...", fileName);
         }
-        DumpToAceb task = new DumpToAceb(convertPath, outputPath, map, isDome, isSkipped, isSkippedForLink);
+        DumpToAceb task = new DumpToAceb(filePath, filePathL, outputPath, map, isDome, isSkipped, isSkippedForLink);
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
             public void taskExecuted(Task<HashMap<String, String>> t) {
@@ -463,8 +481,8 @@ public class QuadCmdLine {
                 LOG.error(getStackTrace(arg0.getFault()));
                 if (acebOnly) {
                     acebOnlyRet = false;
-                }
-                if (isDome) {
+                    toOutput(result, arg0.getResult());
+                } else if (isDome) {
                     reviseData(result);
                     toOutput(result, arg0.getResult());
                 }
@@ -584,6 +602,7 @@ public class QuadCmdLine {
                 return;
             }
         }
+        domeIdHashMap = saveDomeHashedIds(map, domeIdHashMap);
         if (isOverwrite) {
             LOG.info("Clean the previous output folders...");
             String outPath;
@@ -659,6 +678,78 @@ public class QuadCmdLine {
             }
         };
         task.execute(new TaskAdapter<String>(listener));
+    }
+
+    private HashMap<String, String> saveDomeHashedIds(HashMap map, HashMap<String, String> domeIdHashMap) {
+        HashMap<String, String> ret = domeIdHashMap;
+        if (domeIdHashMap == null) {
+            ret = new HashMap();
+            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "experiments", new ArrayList())));
+            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "soils", new ArrayList())));
+            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "weathers", new ArrayList())));
+            if (ret.isEmpty()) {
+                ret = null;
+            }
+        } else {
+            saveDomeHashedIds(MapUtil.getObjectOr(map, "experiments", new ArrayList()), domeIdHashMap);
+            saveDomeHashedIds(MapUtil.getObjectOr(map, "soils", new ArrayList()), domeIdHashMap);
+            saveDomeHashedIds(MapUtil.getObjectOr(map, "weathers", new ArrayList()), domeIdHashMap);
+        }
+
+        return ret;
+    }
+
+    private void saveDomeHashedIds(ArrayList<HashMap> arr, HashMap<String, String> domeIdHashMap) {
+
+        for (HashMap data : arr) {
+            if (MapUtil.getValueOr(data, "dome_applied", "").equals("Y")) {
+                if (MapUtil.getValueOr(data, "seasonal_dome_applied", "").equals("Y")) {
+                    String fieldName = MapUtil.getValueOr(data, "seasonal_strategy", "").toUpperCase();
+                    String dsid = domeIdHashMap.get(fieldName);
+                    if (dsid != null) {
+                        data.put("dsid", dsid);
+                    }
+                }
+                if (MapUtil.getValueOr(data, "rotational_dome_applied", "").equals("Y")) {
+                    String fieldName = MapUtil.getValueOr(data, "rotational_strategy", "").toUpperCase();
+                    String drid = domeIdHashMap.get(fieldName);
+                    if (drid != null) {
+                        data.put("drid", drid);
+                    }
+                }
+                if (MapUtil.getValueOr(data, "field_dome_applied", "").equals("Y")) {
+                    String fieldName = MapUtil.getValueOr(data, "field_overlay", "").toUpperCase();
+                    String doid = domeIdHashMap.get(fieldName);
+                    if (doid != null) {
+                        data.put("doid", doid);
+                    }
+                }
+            }
+        }
+    }
+
+    private HashMap<String, String> loadDomeHashedIds(ArrayList<HashMap> arr) {
+
+        HashMap<String, String> domeIdHashMap = new HashMap();
+        for (HashMap data : arr) {
+            String seasonalName = MapUtil.getValueOr(data, "seasonal_strategy", "").toUpperCase();
+            String dsid = MapUtil.getValueOr(data, "dsid", "");
+            if (!dsid.equals("") && !domeIdHashMap.containsKey(seasonalName)) {
+                domeIdHashMap.put(seasonalName, dsid);
+            }
+            String rotationalName = MapUtil.getValueOr(data, "rotational_strategy", "").toUpperCase();
+            String drid = MapUtil.getValueOr(data, "drid", "");
+            if (!drid.equals("") && !domeIdHashMap.containsKey(rotationalName)) {
+                domeIdHashMap.put(rotationalName, drid);
+            }
+            String fieldName = MapUtil.getValueOr(data, "field_overlay", "").toUpperCase();
+            String doid = MapUtil.getValueOr(data, "doid", "");
+            if (!doid.equals("") && !domeIdHashMap.containsKey(fieldName)) {
+                domeIdHashMap.put(fieldName, doid);
+            }
+        }
+        
+        return domeIdHashMap;
     }
 
     private void printHelp() {

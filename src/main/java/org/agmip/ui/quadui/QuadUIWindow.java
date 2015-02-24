@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Properties;
-import java.util.Scanner;
 import java.util.prefs.Preferences;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -42,6 +41,7 @@ import org.apache.pivot.wtk.Component;
 import org.apache.pivot.wtk.DesktopApplicationContext;
 import org.apache.pivot.wtk.FileBrowserSheet;
 import org.apache.pivot.wtk.Label;
+import org.apache.pivot.wtk.Limits;
 import org.apache.pivot.wtk.MessageType;
 import org.apache.pivot.wtk.Orientation;
 import org.apache.pivot.wtk.PushButton;
@@ -58,14 +58,19 @@ public class QuadUIWindow extends Window implements Bindable {
     private static final Logger LOG = LoggerFactory.getLogger(QuadUIWindow.class);
     private ActivityIndicator convertIndicator = null;
     private PushButton convertButton = null;
-    private PushButton browseToConvert = null;
-    private PushButton browseToConvertSup = null;
+    private PushButton browseExpToConvert = null;
+    private PushButton browseWthToConvert = null;
+    private PushButton browseCulToConvert = null;
+    private PushButton browseSoilToConvert = null;
     private PushButton browseOutputDir = null;
     private PushButton browseLinkFile = null;
     private PushButton browseFieldFile = null;
     private PushButton browseStrategyFile = null;
     private ButtonGroup runType = null;
-    private Checkbox convertSupCB = null;
+    private Checkbox convertExpCB = null;
+    private Checkbox convertWthCB = null;
+    private Checkbox convertCulCB = null;
+    private Checkbox convertSoilCB = null;
     private Checkbox modelApsim = null;
     private Checkbox modelDssat = null;
     private Checkbox modelStics = null;
@@ -83,12 +88,13 @@ public class QuadUIWindow extends Window implements Bindable {
     private Label lblField = null;
     private Label lblStrategy = null;
     private TextInput outputText = null;
-    private TextInput convertText = null;
-    private TextInput convertSupText = null;
+    private TextInput convertExpText = null;
+    private TextInput convertWthText = null;
+    private TextInput convertCulText = null;
+    private TextInput convertSoilText = null;
     private TextInput linkText = null;
     private TextInput fieldText = null;
     private TextInput strategyText = null;
-    private BoxPane linkBP = null;
     private ArrayList<Checkbox> checkboxGroup = new ArrayList<Checkbox>();
     private ArrayList<String> errors = new ArrayList<String>();
     private Properties versionProperties = new Properties();
@@ -98,7 +104,11 @@ public class QuadUIWindow extends Window implements Bindable {
     private boolean autoApply = false;
     private boolean acebOnly = false;
     private boolean acebOnlyRet = true;
-    private boolean isMultiInput = false;
+//    private boolean isMultiInput = false;
+    private boolean isExpActived = true;
+    private boolean isWthActived = true;
+    private boolean isCulActived = true;
+    private boolean isSoilActived = false;
     private HashMap modelSpecFiles;
 
     public QuadUIWindow() {
@@ -141,29 +151,77 @@ public class QuadUIWindow extends Window implements Bindable {
                 errs.add("You need to select an output format");
             }
         }
-        File convertFile = new File(convertText.getText());
-        File outputDir = new File(outputText.getText());
-        if (!convertFile.exists()) {
-            errs.add("You need to select a file to convert");
+        if (!isExpActived && !isWthActived && !isSoilActived) {
+            errs.add("Experiment, weather or soil data is required");
+        } else {
+            if (isExpActived) {
+                validateInputFile(errs, convertExpText.getText(), "experiment", new String[]{});
+            }
+            if (isWthActived) {
+                validateInputFile(errs, convertWthText.getText(), "weather", new String[]{".csv", ".wth", "*.agmip", "*.aceb", "*.json"});
+            }
+            if (isSoilActived) {
+                validateInputFile(errs, convertSoilText.getText(), "soil", new String[]{".csv", ".sol", ".aceb", ".json"});
+            }
         }
+        if (isCulActived) {
+            validateInputFile(errs, convertCulText.getText(), "cultivar", new String[]{"_specific/"});
+        }
+        
+        File outputDir = new File(outputText.getText());
         if (!outputDir.exists() || !outputDir.isDirectory()) {
             errs.add("You need to select an output directory");
         }
-        if (isMultiInput) {
-            File convertSupFile = new File(convertSupText.getText());
-            if (!convertSupFile.exists()) {
-                errs.add("You need to select a supplemental file to convert");
+        return errs;
+    }
+    
+    private void validateInputFile(ArrayList<String> errs, String filePath, String dataType, String[] allowedExts) {
+        File convertFile = new File(filePath);
+        if (!convertFile.exists()) {
+            errs.add("You need to include a " + dataType + " data to convert");
+        } else if (convertFile.getName().toLowerCase().endsWith(".zip") && allowedExts.length > 0) {
+            try {
+                ZipFile zf = new ZipFile(convertFile);
+                Enumeration<? extends ZipEntry> e = zf.entries();
+                boolean isCulExist = false;
+                while (e.hasMoreElements()) {
+                    ZipEntry ze = (ZipEntry) e.nextElement();
+                    String zeName = ze.getName().toLowerCase();
+                    boolean isAllowExt = false;
+                    if (dataType.equals("cultivar")) {
+                        if (ze.isDirectory() && zeName.endsWith(allowedExts[0])) {
+                            isCulExist = true;
+                        }
+                    } else {
+                        for (String ext : allowedExts) {
+                            if (zeName.endsWith(ext)) {
+                                isAllowExt = true;
+                                break;
+                            }
+                        }
+                        if (!isAllowExt) {
+                            errs.add("Your " + dataType +" data contains non-" + dataType + " files");
+                            break;
+                        }
+                    }
+                }
+                if (dataType.equals("cultivar") && !isCulExist) {
+                    errs.add("Your " + dataType +" data don't contains " + dataType + " folder");
+                }
+                zf.close();
+            } catch (IOException ex) {
             }
         }
-        return errs;
     }
 
     @Override
     public void initialize(Map<String, Object> ns, URL location, Resources res) {
         convertIndicator    = (ActivityIndicator) ns.get("convertIndicator");
         convertButton       = (PushButton) ns.get("convertButton");
-        browseToConvert     = (PushButton) ns.get("browseConvertButton");
-        browseToConvertSup  = (PushButton) ns.get("browseConvertSupButton");
+        browseExpToConvert     = (PushButton) ns.get("browseConvertExpButton");
+        browseWthToConvert     = (PushButton) ns.get("browseConvertWthButton");
+        browseCulToConvert     = (PushButton) ns.get("browseConvertCulButton");
+        browseSoilToConvert     = (PushButton) ns.get("browseConvertSoilButton");
         browseOutputDir     = (PushButton) ns.get("browseOutputButton");
         browseLinkFile      = (PushButton) ns.get("browseLinkButton");
         browseFieldFile     = (PushButton) ns.get("browseFieldButton");
@@ -175,14 +233,18 @@ public class QuadUIWindow extends Window implements Bindable {
         lblLink             = (Label) ns.get("linkLabel");
         lblField            = (Label) ns.get("fieldLabel");
         lblStrategy         = (Label) ns.get("strategyLabel");
-        linkBP              = (BoxPane) ns.get("linkBP");
-        convertText         = (TextInput) ns.get("convertText");
-        convertSupText      = (TextInput) ns.get("convertSupText");
+        convertExpText         = (TextInput) ns.get("convertExpText");
+        convertWthText      = (TextInput) ns.get("convertWthText");
+        convertCulText      = (TextInput) ns.get("convertCulText");
+        convertSoilText      = (TextInput) ns.get("convertSoilText");
         outputText          = (TextInput) ns.get("outputText");
         linkText            = (TextInput) ns.get("linkText");
         fieldText           = (TextInput) ns.get("fieldText");
         strategyText        = (TextInput) ns.get("strategyText");
-        convertSupCB        = (Checkbox) ns.get("convertSupCB");
+        convertExpCB        = (Checkbox) ns.get("convertExpCB");
+        convertWthCB        = (Checkbox) ns.get("convertWthCB");
+        convertCulCB        = (Checkbox) ns.get("convertCulCB");
+        convertSoilCB        = (Checkbox) ns.get("convertSoilCB");
         modelApsim          = (Checkbox) ns.get("model-apsim");
         modelDssat          = (Checkbox) ns.get("model-dssat");
         modelStics          = (Checkbox) ns.get("model-stics");
@@ -238,7 +300,7 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         });
 
-        browseToConvert.getButtonPressListeners().add(new ButtonPressListener() {
+        browseExpToConvert.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
                 final FileBrowserSheet browse = openFileBrowserSheet("last_input_raw");
@@ -259,7 +321,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     public void sheetClosed(Sheet sheet) {
                         if (sheet.getResult()) {
                             File convertFile = browse.getSelectedFile();
-                            convertText.setText(convertFile.getPath());
+                            convertExpText.setText(convertFile.getPath());
                             pref.put("last_input_raw", convertFile.getPath());
                             if (outputText.getText().contains("")) {
                                 try {
@@ -274,29 +336,85 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         });
 
-        browseToConvertSup.getButtonPressListeners().add(new ButtonPressListener() {
+        browseWthToConvert.getButtonPressListeners().add(new ButtonPressListener() {
             @Override
             public void buttonPressed(Button button) {
-                final FileBrowserSheet browse = openFileBrowserSheet("last_input_raw_sup");
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_raw_wth");
                 browse.setDisabledFileFilter(new Filter<File>() {
 
                     @Override
                     public boolean include(File file) {
                         return (file.isFile()
-                                && (!file.getName().toLowerCase().endsWith(".csv")
-                                && (!file.getName().toLowerCase().endsWith(".zip")
-                                && (!file.getName().toLowerCase().endsWith(".json")
-                                && (!file.getName().toLowerCase().endsWith(".aceb")
-                                && (!file.getName().toLowerCase().endsWith(".agmip")))))));
+                                && !file.getName().toLowerCase().endsWith(".csv")
+                                && !file.getName().toLowerCase().endsWith(".zip")
+                                && !file.getName().toLowerCase().endsWith(".json")
+                                && !file.getName().toLowerCase().endsWith(".aceb")
+                                && !file.getName().toLowerCase().endsWith(".wth")
+                                && !file.getName().toLowerCase().endsWith(".agmip"));
                     }
                 });
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
                     @Override
                     public void sheetClosed(Sheet sheet) {
                         if (sheet.getResult()) {
-                            File convertSupFile = browse.getSelectedFile();
-                            convertSupText.setText(convertSupFile.getPath());
-                            pref.put("last_input_raw_sup", convertSupFile.getPath());
+                            File convertWthFile = browse.getSelectedFile();
+                            convertWthText.setText(convertWthFile.getPath());
+                            pref.put("last_input_raw_wth", convertWthFile.getPath());
+                        }
+                    }
+                });
+            }
+        });
+
+        browseCulToConvert.getButtonPressListeners().add(new ButtonPressListener() {
+            @Override
+            public void buttonPressed(Button button) {
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_raw_cul");
+                browse.setDisabledFileFilter(new Filter<File>() {
+
+                    @Override
+                    public boolean include(File file) {
+                        return (file.isFile()
+                                && !file.getName().toLowerCase().endsWith(".zip"));
+                    }
+                });
+                browse.open(QuadUIWindow.this, new SheetCloseListener() {
+                    @Override
+                    public void sheetClosed(Sheet sheet) {
+                        if (sheet.getResult()) {
+                            File convertCulFile = browse.getSelectedFile();
+                            convertCulText.setText(convertCulFile.getPath());
+                            pref.put("last_input_raw_cul", convertCulFile.getPath());
+                        }
+                    }
+                });
+            }
+        });
+
+        browseSoilToConvert.getButtonPressListeners().add(new ButtonPressListener() {
+            @Override
+            public void buttonPressed(Button button) {
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_raw_soil");
+                browse.setDisabledFileFilter(new Filter<File>() {
+
+                    @Override
+                    public boolean include(File file) {
+                        return (file.isFile()
+                                && !file.getName().toLowerCase().endsWith(".csv")
+                                && !file.getName().toLowerCase().endsWith(".zip")
+                                && !file.getName().toLowerCase().endsWith(".json")
+                                && !file.getName().toLowerCase().endsWith(".aceb")
+                                && !file.getName().toLowerCase().endsWith(".sol")
+                                && !file.getName().toLowerCase().endsWith(".agmip"));
+                    }
+                });
+                browse.open(QuadUIWindow.this, new SheetCloseListener() {
+                    @Override
+                    public void sheetClosed(Sheet sheet) {
+                        if (sheet.getResult()) {
+                            File convertSoilFile = browse.getSelectedFile();
+                            convertSoilText.setText(convertSoilFile.getPath());
+                            pref.put("last_input_raw_soil", convertSoilFile.getPath());
                         }
                     }
                 });
@@ -342,7 +460,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     public boolean include(File file) {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
-                                && (!file.getName().toLowerCase().endsWith(".zip"))
+//                                && (!file.getName().toLowerCase().endsWith(".zip"))
                                 && (!file.getName().toLowerCase().endsWith(".alnk")));
                     }
                 });
@@ -433,13 +551,17 @@ public class QuadUIWindow extends Window implements Bindable {
                     enableStrategyOverlay(false);
                     mode = "none";
                 } else if (current.equals("overlayField")) {
-                    enableLinkFile(true);
+                    if (optionLinkage.isSelected()) {
+                        enableLinkFile(true);
+                    }
                     enableFieldOverlay(true);
                     enableStrategyOverlay(false);
                     mode = "field";
 
                 } else if (current.equals("overlaySeasonal")) {
-                    enableLinkFile(true);
+                    if (optionLinkage.isSelected()) {
+                        enableLinkFile(true);
+                    }
                     enableFieldOverlay(true);
                     enableStrategyOverlay(true);
                     mode = "strategy";
@@ -447,12 +569,39 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         });
 
-        convertSupCB.getButtonStateListeners().add(new ButtonStateListener() {
+        convertExpCB.getButtonStateListeners().add(new ButtonStateListener() {
             @Override
             public void stateChanged(Button button, State state) {
-                isMultiInput = state.equals(State.UNSELECTED);
-                convertSupText.setVisible(isMultiInput);
-                browseToConvertSup.setVisible(isMultiInput);
+                isExpActived = state.equals(State.UNSELECTED);
+                convertExpText.setEnabled(isExpActived);
+                browseExpToConvert.setEnabled(isExpActived);
+            }
+        });
+
+        convertWthCB.getButtonStateListeners().add(new ButtonStateListener() {
+            @Override
+            public void stateChanged(Button button, State state) {
+                isWthActived = state.equals(State.UNSELECTED);
+                convertWthText.setEnabled(isWthActived);
+                browseWthToConvert.setEnabled(isWthActived);
+            }
+        });
+
+        convertCulCB.getButtonStateListeners().add(new ButtonStateListener() {
+            @Override
+            public void stateChanged(Button button, State state) {
+                isCulActived = state.equals(State.UNSELECTED);
+                convertCulText.setEnabled(isCulActived);
+                browseCulToConvert.setEnabled(isCulActived);
+            }
+        });
+
+        convertSoilCB.getButtonStateListeners().add(new ButtonStateListener() {
+            @Override
+            public void stateChanged(Button button, State state) {
+                isSoilActived = state.equals(State.UNSELECTED);
+                convertSoilText.setEnabled(isSoilActived);
+                browseSoilToConvert.setEnabled(isSoilActived);
             }
         });
 
@@ -460,9 +609,11 @@ public class QuadUIWindow extends Window implements Bindable {
             @Override
             public void stateChanged(Button button, State state) {
                 if (state.equals(State.UNSELECTED)) {
-                    linkBP.setVisible(true);
+                    if (!mode.equals("none")) {
+                        enableLinkFile(true);
+                    }
                 } else {
-                    linkBP.setVisible(false);
+                    enableLinkFile(false);
                     linkText.setText("");
                     SetAutoDomeApplyMsg();
                 }
@@ -498,11 +649,20 @@ public class QuadUIWindow extends Window implements Bindable {
         txtStatus.setText("Importing data...");
         LOG.info("Importing data...");
         TranslateFromTask task;
-        if (isMultiInput) {
-            task = new TranslateFromTask(convertText.getText(), convertSupText.getText());
-        } else {
-            task = new TranslateFromTask(convertText.getText());
+        ArrayList<String> inputFiles = new ArrayList();
+        if (isExpActived) {
+            inputFiles.add(convertExpText.getText());
         }
+        if (isWthActived) {
+            inputFiles.add(convertWthText.getText());
+        }
+        if (isCulActived) {
+            inputFiles.add(convertCulText.getText());
+        }
+        if (isSoilActived) {
+            inputFiles.add(convertSoilText.getText());
+        }
+        task = new TranslateFromTask(inputFiles.toArray(new String[0]));
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
 
             @Override
@@ -512,46 +672,67 @@ public class QuadUIWindow extends Window implements Bindable {
                     modelSpecFiles = (HashMap) data.remove("ModelSpec");
 
                     // Dump input data into aceb format
-                    if (isMultiInput) {
-                        dumpToAceb(data);
-                    } else if (convertText.getText().toLowerCase().endsWith(".json")) {
-                        // Check if the data has been applied with DOME.
-                        boolean isDomeApplied = false;
-                        ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
-                        for (HashMap exp : exps) {
-                            if (MapUtil.getValueOr(exp, "dome_applied", "").equals("Y")) {
-                                isDomeApplied = true;
-                                break;
+                    boolean isDomeApplied = true;
+                    if (isExpActived && (isWthActived || isSoilActived)) {
+                        isDomeApplied = false;
+                    } else if (isWthActived && isSoilActived) {
+                        isDomeApplied = false;
+                    } else {
+                        if (isExpActived) {
+                            isDomeApplied = isDomeApplied(convertExpText.getText().toLowerCase(), data);
+                        } else {
+                            if (isWthActived) {
+                                isDomeApplied = isDomeApplied(convertWthText.getText().toLowerCase(), data);
+                            }
+                            if (isDomeApplied && isSoilActived) {
+                                isDomeApplied = isDomeApplied(convertSoilText.getText().toLowerCase(), data);
                             }
                         }
-                        if (exps.isEmpty()) {
-                            ArrayList<HashMap> soils = MapUtil.getObjectOr(data, "soils", new ArrayList());
-                            ArrayList<HashMap> weathers = MapUtil.getObjectOr(data, "weathers", new ArrayList());
-                            for (HashMap soil : soils) {
-                                if (MapUtil.getValueOr(soil, "dome_applied", "").equals("Y")) {
-                                    isDomeApplied = true;
-                                    break;
-                                }
-                            }
-                            if (!isDomeApplied) {
-                                for (HashMap wth : weathers) {
-                                    if (MapUtil.getValueOr(wth, "dome_applied", "").equals("Y")) {
-                                        isDomeApplied = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        // If it has not been applied with DOME, then dump to ACEB
-                        if (!isDomeApplied) {
-                            dumpToAceb(data);
-                        }
-                    } else if (!convertText.getText().toLowerCase().endsWith(".aceb")) {
+                    }
+                    
+                    if (!isDomeApplied) {
                         dumpToAceb(data);
                     }
+//                        if (convertExpText.getText().toLowerCase().endsWith(".json")) {
+//                        // Check if the data has been applied with DOME.
+//                        boolean isDomeApplied = false;
+//                        ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
+//                        for (HashMap exp : exps) {
+//                            if (MapUtil.getValueOr(exp, "dome_applied", "").equals("Y")) {
+//                                isDomeApplied = true;
+//                                break;
+//                            }
+//                        }
+//                        if (exps.isEmpty()) {
+//                            ArrayList<HashMap> soils = MapUtil.getObjectOr(data, "soils", new ArrayList());
+//                            ArrayList<HashMap> weathers = MapUtil.getObjectOr(data, "weathers", new ArrayList());
+//                            for (HashMap soil : soils) {
+//                                if (MapUtil.getValueOr(soil, "dome_applied", "").equals("Y")) {
+//                                    isDomeApplied = true;
+//                                    break;
+//                                }
+//                            }
+//                            if (!isDomeApplied) {
+//                                for (HashMap wth : weathers) {
+//                                    if (MapUtil.getValueOr(wth, "dome_applied", "").equals("Y")) {
+//                                        isDomeApplied = true;
+//                                        break;
+//                                    }
+//                                }
+//                            }
+//                        }
+//                        // If it has not been applied with DOME, then dump to ACEB
+//                        if (!isDomeApplied) {
+//                            dumpToAceb(data);
+//                        }
+//                    } else if (!convertExpText.getText().toLowerCase().endsWith(".aceb")) {
+//                        dumpToAceb(data);
+//                    }
 
                     if (mode.equals("none")) {
-                        toOutput(data, null);
+                        if (!acebOnly) {
+                            toOutput(data, null);
+                        }
                     } else {
                         applyDome(data, mode);
                     }
@@ -570,6 +751,47 @@ public class QuadUIWindow extends Window implements Bindable {
         };
         task.execute(new TaskAdapter<HashMap>(listener));
     }
+    
+    private boolean isDomeApplied(String filePath, HashMap data) {
+        boolean isDomeApplied = false;
+        if (filePath.endsWith(".json")) {
+            // Check if the data has been applied with DOME.
+            ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
+            for (HashMap exp : exps) {
+                if (MapUtil.getValueOr(exp, "dome_applied", "").equals("Y")) {
+                    isDomeApplied = true;
+                    break;
+                }
+            }
+            if (exps.isEmpty()) {
+                ArrayList<HashMap> soils = MapUtil.getObjectOr(data, "soils", new ArrayList());
+                ArrayList<HashMap> weathers = MapUtil.getObjectOr(data, "weathers", new ArrayList());
+                for (HashMap soil : soils) {
+                    if (MapUtil.getValueOr(soil, "dome_applied", "").equals("Y")) {
+                        isDomeApplied = true;
+                        break;
+                    }
+                }
+                if (!isDomeApplied) {
+                    for (HashMap wth : weathers) {
+                        if (MapUtil.getValueOr(wth, "dome_applied", "").equals("Y")) {
+                            isDomeApplied = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            // If it has not been applied with DOME, then dump to ACEB
+            if (!isDomeApplied) {
+                dumpToAceb(data);
+            }
+        } else if (!filePath.endsWith(".aceb")) {
+            isDomeApplied = true;
+        }
+        
+        return isDomeApplied;
+    }
+        
 
     protected void dumpToAceb(HashMap map) {
         dumpToAceb(map, false);
@@ -579,12 +801,27 @@ public class QuadUIWindow extends Window implements Bindable {
         if (!isDome) {
             generateId(map);
         }
-        String filePath = convertText.getText();
-        final String fileName = new File(filePath).getName();
+        String filePath;
+        if (!isDome) {
+            filePath = convertExpText.getText();
+        } else if (mode.equals("strategy")) {
+            filePath = strategyText.getText();
+        } else if (mode.equals("field")) {
+            filePath = fieldText.getText();
+        } else {
+            filePath = convertExpText.getText();
+        }
+        String filePathL;
+        if (linkText.getText().trim().equals("")) {
+            filePathL = convertExpText.getText();
+        } else {
+            filePathL = linkText.getText();
+        }
+        final String fileName = new File(convertExpText.getText()).getName();
         final HashMap result = (HashMap) map.get("domeoutput");
         boolean isSkipped = false;
         boolean isSkippedForLink = false;
-        if (!isDome && filePath.toUpperCase().endsWith(".ACEB")) {
+        if (!isDome && convertExpText.getText().toUpperCase().endsWith(".ACEB")) {
             return;
         } else if (isDome && fieldText.getText().toUpperCase().endsWith(".DOME") && strategyText.getText().toUpperCase().endsWith(".DOME")) {
             isSkipped = true;
@@ -606,7 +843,7 @@ public class QuadUIWindow extends Window implements Bindable {
             txtStatus.setText("Skip generating ALNK file for " + fileName + " ...");
             LOG.info("Skip generating ALNK file for {} ...", fileName);
         }
-        DumpToAceb task = new DumpToAceb(filePath, outputText.getText(), map, isDome, isSkipped, isSkippedForLink);
+        DumpToAceb task = new DumpToAceb(filePath, filePathL, outputText.getText(), map, isDome, isSkipped, isSkippedForLink);
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
             public void taskExecuted(Task<HashMap<String, String>> t) {
@@ -615,7 +852,9 @@ public class QuadUIWindow extends Window implements Bindable {
                 } else {
                     LOG.info("Dump to ACE Binary for {} successfully", fileName);
                 }
-                if (isDome) {
+                if (acebOnly) {
+                    toOutput(result, t.getResult());
+                } else if (isDome) {
                     reviseData(result);
                     toOutput(result, t.getResult());
                 }
@@ -796,6 +1035,7 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         }
         txtStatus.setText("Generating model input files...");
+        domeIdHashMap = saveDomeHashedIds(map, domeIdHashMap);
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {
             models.add("JSON");
@@ -831,7 +1071,7 @@ public class QuadUIWindow extends Window implements Bindable {
         LOG.info("Generating model input files...");
 
         if (models.size() == 1 && models.get(0).equals("JSON")) {
-            DumpToJson task = new DumpToJson(convertText.getText(), outputText.getText(), map);
+            DumpToJson task = new DumpToJson(convertExpText.getText(), outputText.getText(), map);
             TaskListener<String> listener = new TaskListener<String>() {
 
                 @Override
@@ -853,7 +1093,7 @@ public class QuadUIWindow extends Window implements Bindable {
             task.execute(new TaskAdapter<String>(listener));
         } else {
             if (models.indexOf("JSON") != -1) {
-                DumpToJson task = new DumpToJson(convertText.getText(), outputText.getText(), map);
+                DumpToJson task = new DumpToJson(convertExpText.getText(), outputText.getText(), map);
                 TaskListener<String> listener = new TaskListener<String>() {
 
                     @Override
@@ -874,6 +1114,78 @@ public class QuadUIWindow extends Window implements Bindable {
             }
             toOutput2(models, map, domeIdHashMap);
         }
+    }
+
+    private HashMap<String, String> saveDomeHashedIds(HashMap map, HashMap<String, String> domeIdHashMap) {
+        HashMap<String, String> ret = domeIdHashMap;
+        if (domeIdHashMap == null) {
+            ret = new HashMap();
+            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "experiments", new ArrayList())));
+            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "soils", new ArrayList())));
+            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "weathers", new ArrayList())));
+            if (ret.isEmpty()) {
+                ret = null;
+            }
+        } else {
+            saveDomeHashedIds(MapUtil.getObjectOr(map, "experiments", new ArrayList()), domeIdHashMap);
+            saveDomeHashedIds(MapUtil.getObjectOr(map, "soils", new ArrayList()), domeIdHashMap);
+            saveDomeHashedIds(MapUtil.getObjectOr(map, "weathers", new ArrayList()), domeIdHashMap);
+        }
+
+        return ret;
+    }
+
+    private void saveDomeHashedIds(ArrayList<HashMap> arr, HashMap<String, String> domeIdHashMap) {
+
+        for (HashMap data : arr) {
+            if (MapUtil.getValueOr(data, "dome_applied", "").equals("Y")) {
+                if (MapUtil.getValueOr(data, "seasonal_dome_applied", "").equals("Y")) {
+                    String fieldName = MapUtil.getValueOr(data, "seasonal_strategy", "").toUpperCase();
+                    String dsid = domeIdHashMap.get(fieldName);
+                    if (dsid != null) {
+                        data.put("dsid", dsid);
+                    }
+                }
+                if (MapUtil.getValueOr(data, "rotational_dome_applied", "").equals("Y")) {
+                    String fieldName = MapUtil.getValueOr(data, "rotational_strategy", "").toUpperCase();
+                    String drid = domeIdHashMap.get(fieldName);
+                    if (drid != null) {
+                        data.put("drid", drid);
+                    }
+                }
+                if (MapUtil.getValueOr(data, "field_dome_applied", "").equals("Y")) {
+                    String fieldName = MapUtil.getValueOr(data, "field_overlay", "").toUpperCase();
+                    String doid = domeIdHashMap.get(fieldName);
+                    if (doid != null) {
+                        data.put("doid", doid);
+                    }
+                }
+            }
+        }
+    }
+
+    private HashMap<String, String> loadDomeHashedIds(ArrayList<HashMap> arr) {
+
+        HashMap<String, String> domeIdHashMap = new HashMap();
+        for (HashMap data : arr) {
+            String seasonalName = MapUtil.getValueOr(data, "seasonal_strategy", "").toUpperCase();
+            String dsid = MapUtil.getValueOr(data, "dsid", "");
+            if (!dsid.equals("") && !domeIdHashMap.containsKey(seasonalName)) {
+                domeIdHashMap.put(seasonalName, dsid);
+            }
+            String rotationalName = MapUtil.getValueOr(data, "rotational_strategy", "").toUpperCase();
+            String drid = MapUtil.getValueOr(data, "drid", "");
+            if (!drid.equals("") && !domeIdHashMap.containsKey(rotationalName)) {
+                domeIdHashMap.put(rotationalName, drid);
+            }
+            String fieldName = MapUtil.getValueOr(data, "field_overlay", "").toUpperCase();
+            String doid = MapUtil.getValueOr(data, "doid", "");
+            if (!doid.equals("") && !domeIdHashMap.containsKey(fieldName)) {
+                domeIdHashMap.put(fieldName, doid);
+            }
+        }
+        
+        return domeIdHashMap;
     }
 
     private void toOutput2(ArrayList<String> models, HashMap map, HashMap<String, String> domeIdHashMap) {
@@ -929,7 +1241,7 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void SetAutoDomeApplyMsg() {
-        File convertFile = new File(convertText.getText());
+        File convertFile = new File(convertExpText.getText());
         String fileName = convertFile.getName().toLowerCase();
         String msg = "";
         autoApply = false;
@@ -975,7 +1287,35 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private FileBrowserSheet openFileBrowserSheet(String lastPathId) {
-        if (convertText.getText().equals("")) {
+        if (!convertExpText.getText().equals("")) {
+            try {
+                String path = new File(convertExpText.getText()).getCanonicalFile().getParent();
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, path);
+            } catch (IOException ex) {
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
+            }
+        } else if (!convertWthText.getText().equals("")) {
+            try {
+                String path = new File(convertWthText.getText()).getCanonicalFile().getParent();
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, path);
+            } catch (IOException ex) {
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
+            }
+        } else if (!convertCulText.getText().equals("")) {
+            try {
+                String path = new File(convertCulText.getText()).getCanonicalFile().getParent();
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, path);
+            } catch (IOException ex) {
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
+            }
+        } else if (!convertSoilText.getText().equals("")) {
+            try {
+                String path = new File(convertSoilText.getText()).getCanonicalFile().getParent();
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, path);
+            } catch (IOException ex) {
+                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
+            }
+        } else {
             String lastPath = pref.get(lastPathId, "");
             File tmp = new File(lastPath);
             if (lastPath.equals("") || !tmp.exists()) {
@@ -985,13 +1325,6 @@ public class QuadUIWindow extends Window implements Bindable {
                     lastPath = tmp.getParentFile().getPath();
                 }
                 return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, lastPath);
-            }
-        } else {
-            try {
-                String path = new File(convertText.getText()).getCanonicalFile().getParent();
-                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN, path);
-            } catch (IOException ex) {
-                return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
             }
         }
     }

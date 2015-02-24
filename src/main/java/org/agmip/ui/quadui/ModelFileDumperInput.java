@@ -51,6 +51,7 @@ public class ModelFileDumperInput implements TranslatorInput {
                 if (culFiles == null) {
                     LOG.warn("Incorrect folder structure detected for {}", zeName);
                     culFiles = new HashMap();
+                    ret.put(model, culFiles);
                 }
                 String culFileName = getFileName(ze.getName());
                 if (culFiles.containsKey(culFileName)) {
@@ -90,7 +91,7 @@ public class ModelFileDumperInput implements TranslatorInput {
     }
     
     private static char[] getBuf(InputStream in, ZipEntry entry) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(in));
+        BufferedReader br = new BufferedReader(new InputStreamReader(in, "utf-8"));
         char[] buf;
         long size = entry.getSize();
 

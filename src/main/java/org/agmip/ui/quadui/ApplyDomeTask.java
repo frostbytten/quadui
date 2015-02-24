@@ -131,6 +131,7 @@ public class ApplyDomeTask extends Task<HashMap> {
         } else if (domeType.equals("overlay")) {
             links = ovlLinks;
         } else {
+            log.error("Non reconized DOME type has been deceted for {} ", id);
             return "";
         }
         if (links.isEmpty() || id.equals("")) {
@@ -141,6 +142,7 @@ public class ApplyDomeTask extends Task<HashMap> {
         altLinkIds.add(idType + "_ALL");
         if (id.matches("[^_]+_\\d+$")) {
             altLinkIds.add(idType + "_" + id.replaceAll("_\\d+$", ""));
+            altLinkIds.add(idType + "_" + id + "__1");
         } else if (id.matches(".+_\\d+__\\d+$")) {
             altLinkIds.add(idType + "_" + id.replaceAll("__\\d+$", ""));
             altLinkIds.add(idType + "_" + id.replaceAll("_\\d+__\\d+$", ""));
@@ -373,6 +375,10 @@ public class ApplyDomeTask extends Task<HashMap> {
             Engine generatorEngine;
             ArrayList<HashMap<String, Object>> strategyResults = new ArrayList<HashMap<String, Object>>();
             for (HashMap<String, Object> entry : flattenedData) {
+
+                // Remove observed data from input data if apply strategy DOME
+                entry.remove("observed");
+
                 if (autoApply) {
                     entry.put("seasonal_strategy", stgDomeName);
                 }
@@ -394,7 +400,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                         setFailedDomeId(entry, "seasonal_dome_failed", tmp[i]);
                     }
                 }
-                strategyName = tmp[0];
+                strategyName = tmp[0].toUpperCase();
 
                 log.info("Apply DOME {} for {}", strategyName, MapUtil.getValueOr(entry, "exname", MapUtil.getValueOr(entry, "soil_id", MapUtil.getValueOr(entry, "wst_id", "<Unknow>"))));
                 log.debug("Looking for ss: {}", strategyName);
@@ -464,8 +470,8 @@ public class ApplyDomeTask extends Task<HashMap> {
             log.info("Create the cached thread pool with flexible size for appling filed overlay DOME");
             executor = Executors.newCachedThreadPool();
         }
-        HashMap<String, HashSet<String>> soilDomeMap = new HashMap();
-        HashMap<String, HashSet<String>> wthDomeMap = new HashMap();
+        HashMap<String, HashMap<String, ArrayList<HashMap<String, String>>>> soilDomeMap = new HashMap();
+        HashMap<String, HashMap<String, ArrayList<HashMap<String, String>>>> wthDomeMap = new HashMap();
         HashSet<String> soilIds = getSWIdsSet("soils", new String[]{"soil_id"});
         HashSet<String> wthIds = getSWIdsSet("weathers", new String[]{"wst_id", "clim_id"});
         ArrayList<HashMap> soilDataArr = new ArrayList();
@@ -499,6 +505,8 @@ public class ApplyDomeTask extends Task<HashMap> {
             ArrayList<Engine> wEngines = new ArrayList();
             String sDomeIds = "";
             String wDomeIds = "";
+            ArrayList<HashMap<String, String>> sRulesTotal = new ArrayList();
+            ArrayList<HashMap<String, String>> wRulesTotal = new ArrayList();
             if (!domeName.equals("")) {
                 String tmp[] = domeName.split("[|]");
                 int tmpLength = tmp.length;
@@ -519,6 +527,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                                 sDomeIds += "|" + tmpDomeId;
                             }
                             sEngines.add(new Engine(sRules, tmpDomeId));
+                            sRulesTotal.addAll(sRules);
                         }
                         ArrayList<HashMap<String, String>> wRules = domeEngine.extractWthRules();
                         if (!wRules.isEmpty()) {
@@ -528,6 +537,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                                 wDomeIds += "|" + tmpDomeId;
                             }
                             wEngines.add(new Engine(wRules, tmpDomeId));
+                            wRulesTotal.addAll(wRules);
                         }
                         engines.add(domeEngine);
                     } else {
@@ -535,31 +545,49 @@ public class ApplyDomeTask extends Task<HashMap> {
                         setFailedDomeId(entry, "field_dome_failed", tmpDomeId);
                     }
                 }
-                HashSet<String> lastAppliedSoilDomes = soilDomeMap.get(soilId);
+                HashMap<String, ArrayList<HashMap<String, String>>> lastAppliedSoilDomes = soilDomeMap.get(soilId);
                 if (lastAppliedSoilDomes == null) {
                     soilDataArr.add(entry);
                     soilEngines.add(sEngines);
-                    lastAppliedSoilDomes = new HashSet();
-                    lastAppliedSoilDomes.add(sDomeIds);
+                    lastAppliedSoilDomes = new HashMap();
+                    lastAppliedSoilDomes.put(sDomeIds, sRulesTotal);
                     soilDomeMap.put(soilId, lastAppliedSoilDomes);
-                } else if (!lastAppliedSoilDomes.contains(sDomeIds)) {
-                    replicateSoil(entry, soilIds);
-                    soilDataArr.add(entry);
-                    soilEngines.add(sEngines);
-                    lastAppliedSoilDomes.add(sDomeIds);
+                } else if (!lastAppliedSoilDomes.containsKey(sDomeIds)) {
+                    boolean isSameRules = false;
+                    for (ArrayList<HashMap<String, String>> rules : lastAppliedSoilDomes.values()) {
+                        if (rules.equals(sRulesTotal)) {
+                            isSameRules = true;
+                            break;
+                        }
+                    }
+                    if (!isSameRules) {
+                        replicateSoil(entry, soilIds);
+                        soilDataArr.add(entry);
+                        soilEngines.add(sEngines);
+                        lastAppliedSoilDomes.put(sDomeIds, sRulesTotal);
+                    }
                 }
-                HashSet<String> lastAppliedWthDomes = wthDomeMap.get(wstId+climId);
+                HashMap<String, ArrayList<HashMap<String, String>>> lastAppliedWthDomes = wthDomeMap.get(wstId+climId);
                 if (lastAppliedWthDomes == null) {
                     wthDataArr.add(entry);
                     wthEngines.add(wEngines);
-                    lastAppliedWthDomes = new HashSet();
-                    lastAppliedWthDomes.add(wDomeIds);
+                    lastAppliedWthDomes = new HashMap();
+                    lastAppliedWthDomes.put(wDomeIds, wRulesTotal);
                     wthDomeMap.put(wstId+climId, lastAppliedWthDomes);
-                } else if (!lastAppliedWthDomes.contains(wDomeIds)) {
-                    replicateWth(entry, wthIds);
-                    wthDataArr.add(entry);
-                    wthEngines.add(wEngines);
-                    lastAppliedWthDomes.add(wDomeIds);
+                } else if (!lastAppliedWthDomes.containsKey(wDomeIds)) {
+                    boolean isSameRules = false;
+                    for (ArrayList<HashMap<String, String>> rules : lastAppliedWthDomes.values()) {
+                        if (rules.equals(wRulesTotal)) {
+                            isSameRules = true;
+                            break;
+                        }
+                    }
+                    if (!isSameRules) {
+                        replicateWth(entry, wthIds);
+                        wthDataArr.add(entry);
+                        wthEngines.add(wEngines);
+                        lastAppliedWthDomes.put(wDomeIds, wRulesTotal);
+                    }
                 }
                 engineRunners.add(new ApplyDomeRunner(engines, entry, noExpMode, mode));
             }
@@ -665,7 +693,7 @@ public class ApplyDomeTask extends Task<HashMap> {
             maxDomeNum = 1;
         } else {
             domes = ovlDomes;
-            linkid = "field";
+            linkid = "overlay";
             domeKey = "field_overlay";
             maxDomeNum = Integer.MAX_VALUE;
         }
