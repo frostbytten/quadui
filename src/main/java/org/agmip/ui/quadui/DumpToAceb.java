@@ -41,13 +41,14 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
     @Override
     public HashMap<String, String> execute() throws TaskExecutionException {
         String base = getBaseFileName(fileName);
+        String baseL = getBaseFileName(linkFileName);
         String outputAceb;
         String ext;
         if (isDome) {
-            outputAceb = directoryName + "/" + base + ".dome";
+            outputAceb = directoryName + "/" + getDomeName(base, baseL) + ".dome";
             ext = ".dome";
         } else {
-            outputAceb = directoryName + "/" + getAcebName(data, base) + ".aceb";
+            outputAceb = directoryName + "/" + getAcebName(data, base, baseL) + ".aceb";
             ext = ".aceb";
         }
         File file = new File(outputAceb);
@@ -73,7 +74,7 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
                     AceGenerator.generateACEB(file, toJSON(domeHashData));
                 }
                 if (!isSkippedForLink) {
-                    file = new File(directoryName + "/" + getBaseFileName(linkFileName) + ".alnk");
+                    file = new File(directoryName + "/" + baseL + ".alnk");
                     AlnkOutput writer = new AlnkOutput();
                     writer.writeFile(file.getPath(), MapUtil.getObjectOr(data, "domeoutput", new HashMap()));
                 }
@@ -98,13 +99,24 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
     private HashCode generateHCId(HashMap data) throws IOException {
         return hf.newHasher().putBytes(toJSON(data).getBytes("UTF-8")).hash();
     }
+    
+    private String getDomeName(String base, String baseL) {
+        if (!base.matches(".+-[Aa]\\d+$") && baseL.matches(".+-[Aa]\\d+$")) {
+            return base + baseL.substring(baseL.lastIndexOf("-"));
+        } else {
+            return base;
+        }
+    }
 
-    private String getAcebName(HashMap data, String base) {
+    private String getAcebName(HashMap data, String base, String baseL) {
         String ret;
         String adp = "";
         if (base.matches(".+-[Aa]\\d+$")) {
             adp = base.substring(base.lastIndexOf("-"));
             ret = base.substring(0, base.lastIndexOf("-"));
+        } else if (baseL.matches(".+-[Aa]\\d+$")) {
+            adp = baseL.substring(baseL.lastIndexOf("-"));
+            ret = base;
         } else {
             ret = base;
         }

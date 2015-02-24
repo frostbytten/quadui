@@ -6,6 +6,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import org.agmip.dome.DomeUtil;
 
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskExecutionException;
@@ -69,6 +70,16 @@ public class DumpToJson extends Task<String> {
         for (HashMap exp : exps) {
             String domeFlag = MapUtil.getValueOr(exp, "dome_applied", "");
             if ("Y".equals(domeFlag)) {
+                adp = MapUtil.getValueOr(DomeUtil.unpackDomeName(MapUtil.getValueOr(exp, "seasonal_strategy", "")), "man_id", "");
+                if (adp.equals("")) {
+                    adp = MapUtil.getValueOr(DomeUtil.unpackDomeName(MapUtil.getValueOr(exp, "rotational_strategy", "")), "man_id", "");
+                }
+                if (adp.equals("")) {
+                    adp = MapUtil.getValueOr(DomeUtil.unpackDomeName(MapUtil.getValueOr(exp, "field_overlay", "")), "man_id", "");
+                }
+                if (!adp.equals("")) {
+                    adp = "-" + adp;
+                }
                 String seasonalFlag = MapUtil.getValueOr(exp, "seasonal_dome_applied", "");
                 if ("Y".equals(seasonalFlag)) {
                     dome = "-seasonal_strategy";
@@ -82,9 +93,9 @@ public class DumpToJson extends Task<String> {
                 String fieldFlag = MapUtil.getValueOr(exp, "field_dome_applied", "");
                 if ("Y".equals(fieldFlag)) {
                     dome = "-field_overlay";
+                    break;
                 }
             }
-            break;
         }
         if (climId.equals("")) {
             ArrayList<HashMap> wths = MapUtil.getObjectOr(data, "weathers", new ArrayList());
