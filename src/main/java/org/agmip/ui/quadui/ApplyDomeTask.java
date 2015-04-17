@@ -392,6 +392,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                 entry.remove("seasonal_strategy");
 
                 reviseDomeIds(entry, domeName, "strategy");
+                domeName = MapUtil.getValueOr(entry, "seasonal_strategy", "");
                 String tmp[] = domeName.split("[|]");
                 String strategyName;
                 if (tmp.length > 1) {
@@ -498,6 +499,7 @@ public class ApplyDomeTask extends Task<HashMap> {
             }
 
             reviseDomeIds(entry, domeName, "overlay");
+            domeName = MapUtil.getValueOr(entry, "field_overlay", "");
             String soilId = MapUtil.getValueOr(entry, "soil_id", "");
             String wstId = MapUtil.getValueOr(entry, "wst_id", "");
             String climId = MapUtil.getValueOr(entry, "clim_id", "");
