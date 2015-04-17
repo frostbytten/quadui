@@ -24,6 +24,7 @@ import org.agmip.core.types.TranslatorInput;
 import org.agmip.translators.csv.CSVInput;
 import org.agmip.translators.dssat.DssatControllerInput;
 import org.agmip.translators.agmip.AgmipInput;
+import org.agmip.translators.apsim.ApsimReader;
 import org.agmip.util.JSONAdapter;
 
 import org.slf4j.Logger;
@@ -54,6 +55,10 @@ public class TranslateFromTask extends Task<HashMap> {
                         LOG.debug("Found .AgMIP file {}", ze.getName());
                         translators.put("AgMIP", new AgmipInput());
     //                    break;
+                    } else if (zeName.endsWith(".met")) {
+                        LOG.debug("Found .met file {}", ze.getName());
+                        translators.put("APSIM", new ApsimReader());
+    //                    break;
                     } else if (zeName.endsWith(".aceb")) {
                         LOG.debug("Found .ACEB file {}", ze.getName());
                         translators.put("ACEB", new AcebInput());
@@ -72,6 +77,8 @@ public class TranslateFromTask extends Task<HashMap> {
                 f.close();
             } else if (file.toLowerCase().endsWith(".agmip")) {
                 translators.put("AgMIP", new AgmipInput());
+            } else if (file.toLowerCase().endsWith(".met")) {
+                translators.put("APSIM", new ApsimReader());
             } else if (file.toLowerCase().endsWith(".csv")) {
                 translators.put("CSV", new CSVInput());
             } else if (file.toLowerCase().endsWith(".aceb")) {

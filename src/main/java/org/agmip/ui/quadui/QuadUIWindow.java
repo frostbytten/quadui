@@ -41,7 +41,6 @@ import org.apache.pivot.wtk.Component;
 import org.apache.pivot.wtk.DesktopApplicationContext;
 import org.apache.pivot.wtk.FileBrowserSheet;
 import org.apache.pivot.wtk.Label;
-import org.apache.pivot.wtk.Limits;
 import org.apache.pivot.wtk.MessageType;
 import org.apache.pivot.wtk.Orientation;
 import org.apache.pivot.wtk.PushButton;
@@ -158,7 +157,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 validateInputFile(errs, convertExpText.getText(), "experiment", new String[]{});
             }
             if (isWthActived) {
-                validateInputFile(errs, convertWthText.getText(), "weather", new String[]{".csv", ".wth", "*.agmip", "*.aceb", "*.json"});
+                validateInputFile(errs, convertWthText.getText(), "weather", new String[]{".csv", ".wth", ".met", "*.agmip", "*.aceb", "*.json"});
             }
             if (isSoilActived) {
                 validateInputFile(errs, convertSoilText.getText(), "soil", new String[]{".csv", ".sol", ".aceb", ".json"});
