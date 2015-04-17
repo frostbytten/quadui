@@ -427,7 +427,7 @@ public class QuadCmdLine {
             filePath = convertPath;
         }
         String filePathL;
-        if (linkPath.trim().equals("")) {
+        if (linkPath == null || linkPath.trim().equals("")) {
             filePathL = convertPath;
         } else {
             filePathL = linkPath;
