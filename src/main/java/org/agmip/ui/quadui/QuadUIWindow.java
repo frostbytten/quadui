@@ -157,7 +157,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 validateInputFile(errs, convertExpText.getText(), "experiment", new String[]{});
             }
             if (isWthActived) {
-                validateInputFile(errs, convertWthText.getText(), "weather", new String[]{".csv", ".wth", ".met", "*.agmip", "*.aceb", "*.json"});
+                validateInputFile(errs, convertWthText.getText(), "weather", new String[]{".csv", ".wth", ".met", ".agmip", ".aceb", ".json"});
             }
             if (isSoilActived) {
                 validateInputFile(errs, convertSoilText.getText(), "soil", new String[]{".csv", ".sol", ".aceb", ".json"});
