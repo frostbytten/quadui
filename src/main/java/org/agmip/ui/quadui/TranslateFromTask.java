@@ -48,7 +48,9 @@ public class TranslateFromTask extends Task<HashMap> {
                     if (zeName.endsWith(".csv")) {
                         translators.put("CSV", new CSVInput());
     //                    break;
-                    } else if (zeName.endsWith(".wth")) {
+                    } else if (zeName.endsWith(".wth") || 
+                            zeName.endsWith(".sol") ||
+                            zeName.matches(".+\\.\\d{2}[xat]")) {
                         translators.put("DSSAT", new DssatControllerInput());
     //                    break;
                     } else if (zeName.endsWith(".agmip")) {
@@ -85,6 +87,10 @@ public class TranslateFromTask extends Task<HashMap> {
                 translators.put("ACEB", new AcebInput());
             } else if (file.toLowerCase().endsWith(".json")) {
                 translators.put("JSON", new JsonInput());
+            } else if (file.toLowerCase().endsWith(".sol") ||
+                    file.toLowerCase().endsWith(".wth") ||
+                    file.toLowerCase().matches(".+\\.\\d{2}[xat]")) {
+                translators.put("DSSAT", new DssatControllerInput());
             } else {
                 LOG.error("Unsupported file: {}", file);
                 throw new Exception("Unsupported file type");
