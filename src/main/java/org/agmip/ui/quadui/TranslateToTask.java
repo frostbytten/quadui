@@ -2,10 +2,15 @@ package org.agmip.ui.quadui;
 
 import com.rits.cloning.Cloner;
 import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.io.AceParser;
 
 
 import org.agmip.core.types.TranslatorOutput;
@@ -17,9 +22,11 @@ import org.agmip.translators.dssat.DssatControllerOutput;
 import org.agmip.translators.dssat.DssatWeatherOutput;
 import org.agmip.acmo.util.AcmoUtil;
 import org.agmip.common.Functions;
+import org.agmip.translators.agmip.AgmipOutput;
 import org.agmip.translators.cropgrownau.CropGrowNAUOutput;
 import org.agmip.translators.stics.SticsOutput;
 import org.agmip.translators.wofost.WofostOutputController;
+import org.agmip.util.JSONAdapter;
 
 // import com.google.common.io.Files;
 
@@ -28,17 +35,24 @@ import org.slf4j.LoggerFactory;
 
 public class TranslateToTask extends Task<String> {
 
-    private HashMap data;
-    private ArrayList<String> translateList;
-    private ArrayList<String> weatherList, soilList;
-    private String destDirectory;
-    private boolean compress;
-    private HashMap<String, String> domeIdHashMap;
-    private HashMap<String, HashMap> modelSpecFiles;
-    private static Logger LOG = LoggerFactory.getLogger(TranslateToTask.class);
+    private final HashMap data;
+    private final AceDataset aceData;
+    private final ArrayList<String> translateList;
+    private final ArrayList<String> weatherList, soilList;
+    private final String destDirectory;
+    private final boolean compress;
+    private final HashMap<String, String> domeIdHashMap;
+    private final HashMap<String, HashMap> modelSpecFiles;
+    private static final Logger LOG = LoggerFactory.getLogger(TranslateToTask.class);
+    
 
     public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress, HashMap<String, String> domeIdHashMap, HashMap<String, HashMap> modelSpecFiles) {
         this.data = data;
+        if (translateList.contains("AgMIP")) {
+            this.aceData = toAceDataset(data);
+        } else {
+            this.aceData = null;
+        }
         this.destDirectory = destDirectory;
         this.translateList = new ArrayList<String>();
         this.weatherList = new ArrayList<String>();
@@ -94,7 +108,6 @@ public class TranslateToTask extends Task<String> {
                 executor.shutdown();
                 while (!executor.isTerminated()) {
                 }
-                executor = null;
                 //this.data = null;
             } catch (Exception ex) {
                 throw new TaskExecutionException(ex);
@@ -114,6 +127,7 @@ public class TranslateToTask extends Task<String> {
         Cloner cloner = new Cloner();
         data = cloner.deepClone(data);
         TranslatorOutput translator = null;
+        org.agmip.ace.translators.io.TranslatorOutput newTranslator = null;
         if (trType.equals("DSSAT")) {
             if (wthOnly) {
                 LOG.info("DSSAT Weather Translator Started");
@@ -134,10 +148,20 @@ public class TranslateToTask extends Task<String> {
         } else if (trType.equals("CropGrow-NAU")) {
             LOG.info("CropGrow-NAU Translator Started");
             translator = new CropGrowNAUOutput();
+        } else if (trType.equals("AgMIP")) {
+            LOG.info("AgMIP Weather Translator Started");
+            newTranslator = new AgmipOutput();
         }
-        LOG.debug("Translating with :"+translator.getClass().getName());
-        Runnable thread = new TranslateRunner(translator, data, path.toString(), trType, compress);
-        executor.execute(thread);
+        if (translator != null) {
+            LOG.debug("Translating with :"+translator.getClass().getName());
+            Runnable thread = new TranslateRunner(translator, data, path.toString(), trType, compress);
+            executor.execute(thread);
+        } else if (newTranslator != null) {
+            LOG.debug("Translating with :"+newTranslator.getClass().getName());
+            Runnable thread = new TranslateRunner(newTranslator, aceData, path.toString(), trType, compress);
+            executor.execute(thread);
+        }
+        
     }
 
     private static File createModelDestDirectory(String basePath, String model) {
@@ -151,5 +175,17 @@ public class TranslateToTask extends Task<String> {
         }
         destDirectory.mkdirs();
         return destDirectory;
+    }
+    
+    private AceDataset toAceDataset(Map data) {
+        
+        AceDataset ace;
+        try {
+             ace = AceParser.parse(JSONAdapter.toJSON(data));
+        } catch (IOException ex) {
+            LOG.warn(ex.getMessage());
+            ace = new AceDataset();
+        }
+        return ace;
     }
 }
