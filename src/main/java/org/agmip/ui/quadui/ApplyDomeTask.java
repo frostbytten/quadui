@@ -159,20 +159,17 @@ public class ApplyDomeTask extends Task<HashMap> {
         return linkIds;
     }
 
-    private void reviseDomeIds(HashMap entry, String domeIds, String domeType) {
+    private String reviseDomeIds(HashMap entry, String domeIds, String domeType) {
         HashMap<String, HashMap<String, Object>> domes;
         HashMap<String, String> domeClimIdMap;
-        String domeName;
         if (domeType.equals("strategy")) {
             domes = stgDomes;
             domeClimIdMap = ovlNewDomeIdMap;
-            domeName = "seasonal_strategy";
         } else if (domeType.equals("overlay")) {
             domes = ovlDomes;
             domeClimIdMap = stgNewDomeIdMap;
-            domeName = "field_overlay";
         } else {
-            return;
+            return domeIds;
         }
         
         StringBuilder newDomeIds = new StringBuilder();
@@ -214,7 +211,7 @@ public class ApplyDomeTask extends Task<HashMap> {
         if (newDomeIds.charAt(newDomeIds.length() - 1) == '|') {
             newDomeIds.deleteCharAt(newDomeIds.length() - 1); 
         }
-        entry.put(domeName, newDomeIds.toString());
+        return newDomeIds.toString();
     }
 
     private void loadDomeFile(String fileName, HashMap<String, HashMap<String, Object>> domes) {
@@ -389,10 +386,9 @@ public class ApplyDomeTask extends Task<HashMap> {
                     entry.put("seasonal_strategy", domeName);
                     log.debug("Apply seasonal strategy domes from link csv: {}", domeName);
                 }
-                entry.remove("seasonal_strategy");
 
-                reviseDomeIds(entry, domeName, "strategy");
-                domeName = MapUtil.getValueOr(entry, "seasonal_strategy", "");
+                domeName = reviseDomeIds(entry, domeName, "strategy");
+                entry.put("seasonal_strategy", domeName);
                 String tmp[] = domeName.split("[|]");
                 String strategyName;
                 if (tmp.length > 1) {
@@ -498,8 +494,8 @@ public class ApplyDomeTask extends Task<HashMap> {
                 log.debug("Apply field overlay domes from link csv: {}", domeName);
             }
 
-            reviseDomeIds(entry, domeName, "overlay");
-            domeName = MapUtil.getValueOr(entry, "field_overlay", "");
+            domeName = reviseDomeIds(entry, domeName, "overlay");
+            entry.put("field_overlay", domeName);
             String soilId = MapUtil.getValueOr(entry, "soil_id", "");
             String wstId = MapUtil.getValueOr(entry, "wst_id", "");
             String climId = MapUtil.getValueOr(entry, "clim_id", "");
@@ -718,6 +714,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                 }
             }
 
+            domeName = reviseDomeIds(exp, domeName, linkid);
             if (!domeName.equals("")) {
                 String tmp[] = domeName.split("[|]");
                 int tmpLength = Math.min(tmp.length, maxDomeNum);
