@@ -854,7 +854,9 @@ public class QuadUIWindow extends Window implements Bindable {
                 if (acebOnly) {
                     acebOnlyRet = false;
                 }
-                if (isDome) {
+                if (acebOnly) {
+                    toOutput(result, null);
+                } else if (isDome) {
                     reviseData(result);
                     toOutput(result, null);
                 }
