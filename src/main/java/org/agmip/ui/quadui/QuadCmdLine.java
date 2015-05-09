@@ -133,6 +133,8 @@ public class QuadCmdLine {
                 addModel(Model.WOFOST.toString());
             } else if (args[i].equalsIgnoreCase("-cropgrownau")) {
                 addModel("CropGrow-NAU");
+            } else if (args[i].equalsIgnoreCase("-agmip")) {
+                addModel("AgMIP");
             } else if (args[i].equalsIgnoreCase("-json")) {
                 addModel(Model.JSON.toString());
             } else if (args[i].equalsIgnoreCase("-cli")) {
@@ -166,6 +168,9 @@ public class QuadCmdLine {
                 }
                 if (args[i].contains("C")) {
                     addModel("CropGrow-NAU");
+                }
+                if (args[i].contains("G")) {
+                    addModel("AgMIP");
                 }
                 if (args[i].contains("J")) {
                     addModel(Model.JSON.toString());
@@ -427,7 +432,7 @@ public class QuadCmdLine {
             filePath = convertPath;
         }
         String filePathL;
-        if (linkPath.trim().equals("")) {
+        if (linkPath == null || linkPath.trim().equals("")) {
             filePathL = convertPath;
         } else {
             filePathL = linkPath;
@@ -465,7 +470,9 @@ public class QuadCmdLine {
                 } else {
                     LOG.info("Dump to ACE Binary for {} successfully", fileName);
                 }
-                if (isDome) {
+                if (acebOnly) {
+                    toOutput(result, t.getResult());
+                } else if (isDome) {
                     reviseData(result);
                     toOutput(result, t.getResult());
                 }
@@ -776,6 +783,7 @@ public class QuadCmdLine {
         System.out.println("\t\t-S | -stics\tSTICS");
         System.out.println("\t\t-W | -wofost\tWOFOST");
         System.out.println("\t\t-C | -cropgrownau\tCropGrow-NAU");
+        System.out.println("\t\t-G | -agmip\tAgMIP Weather");
         System.out.println("\t\t-J | -json\tJSON");
         System.out.println("\t\t-aceb\t\tACEB only, will ignore other model choices");
         System.out.println("\t\t* Could be combined input like -DAJ or -DJ");

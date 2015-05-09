@@ -41,7 +41,6 @@ import org.apache.pivot.wtk.Component;
 import org.apache.pivot.wtk.DesktopApplicationContext;
 import org.apache.pivot.wtk.FileBrowserSheet;
 import org.apache.pivot.wtk.Label;
-import org.apache.pivot.wtk.Limits;
 import org.apache.pivot.wtk.MessageType;
 import org.apache.pivot.wtk.Orientation;
 import org.apache.pivot.wtk.PushButton;
@@ -99,7 +98,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private ArrayList<String> errors = new ArrayList<String>();
     private Properties versionProperties = new Properties();
     private String quadVersion = "";
-    private Preferences pref = Preferences.userNodeForPackage(getClass());
+    private Preferences pref = null;
     private String mode = "";
     private boolean autoApply = false;
     private boolean acebOnly = false;
@@ -158,7 +157,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 validateInputFile(errs, convertExpText.getText(), "experiment", new String[]{});
             }
             if (isWthActived) {
-                validateInputFile(errs, convertWthText.getText(), "weather", new String[]{".csv", ".wth", "*.agmip", "*.aceb", "*.json"});
+                validateInputFile(errs, convertWthText.getText(), "weather", new String[]{".csv", ".wth", ".met", ".agmip", ".aceb", ".json"});
             }
             if (isSoilActived) {
                 validateInputFile(errs, convertSoilText.getText(), "soil", new String[]{".csv", ".sol", ".aceb", ".json"});
@@ -266,6 +265,11 @@ public class QuadUIWindow extends Window implements Bindable {
         outputText.setText("");
         txtVersion.setText(quadVersion);
         LOG.info("QuadUI {} lauched with JAVA {} under OS {}", quadVersion, System.getProperty("java.runtime.version"), System.getProperty("os.name"));
+        try {
+            pref = Preferences.userNodeForPackage(getClass());
+        } catch (Exception e) {
+            LOG.warn(e.getMessage());
+        }
         mode = "none";
 
         convertButton.getButtonPressListeners().add(new ButtonPressListener() {
@@ -322,7 +326,9 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File convertFile = browse.getSelectedFile();
                             convertExpText.setText(convertFile.getPath());
-                            pref.put("last_input_raw", convertFile.getPath());
+                            if (pref != null) {
+                                pref.put("last_input_raw", convertFile.getPath());
+                            }
                             if (outputText.getText().contains("")) {
                                 try {
                                     outputText.setText(convertFile.getCanonicalFile().getParent());
@@ -359,7 +365,9 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File convertWthFile = browse.getSelectedFile();
                             convertWthText.setText(convertWthFile.getPath());
-                            pref.put("last_input_raw_wth", convertWthFile.getPath());
+                            if (pref != null) {
+                                pref.put("last_input_raw_wth", convertWthFile.getPath());
+                            }
                         }
                     }
                 });
@@ -384,7 +392,9 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File convertCulFile = browse.getSelectedFile();
                             convertCulText.setText(convertCulFile.getPath());
-                            pref.put("last_input_raw_cul", convertCulFile.getPath());
+                            if (pref != null) {
+                                pref.put("last_input_raw_cul", convertCulFile.getPath());
+                            }
                         }
                     }
                 });
@@ -414,7 +424,9 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File convertSoilFile = browse.getSelectedFile();
                             convertSoilText.setText(convertSoilFile.getPath());
-                            pref.put("last_input_raw_soil", convertSoilFile.getPath());
+                            if (pref != null) {
+                                pref.put("last_input_raw_soil", convertSoilFile.getPath());
+                            }
                         }
                     }
                 });
@@ -427,7 +439,10 @@ public class QuadUIWindow extends Window implements Bindable {
                 final FileBrowserSheet browse;
                 if (outputText.getText().equals("")) {
 //                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO);
-                    String lastPath = pref.get("last_output", "");
+                    String lastPath = "";
+                    if (pref != null) {
+                        lastPath = pref.get("last_output", "");
+                    }
                     if (lastPath.equals("") || !new File(lastPath).exists()) {
                         browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO);
                     } else {
@@ -443,7 +458,9 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File outputDir = browse.getSelectedFile();
                             outputText.setText(outputDir.getPath());
-                            pref.put("last_output", outputDir.getPath());
+                            if (pref != null) {
+                                pref.put("last_output", outputDir.getPath());
+                            }
                         }
                     }
                 });
@@ -470,7 +487,9 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File linkFile = browse.getSelectedFile();
                             linkText.setText(linkFile.getPath());
-                            pref.put("last_input_link", linkFile.getPath());
+                            if (pref != null) {
+                                pref.put("last_input_link", linkFile.getPath());
+                            }
                             // Disable auto apply when link csv file is provided
                             txtAutoDomeApplyMsg.setText("");
                             autoApply = false;
@@ -500,7 +519,9 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File fieldFile = browse.getSelectedFile();
                             fieldText.setText(fieldFile.getPath());
-                            pref.put("last_input_field", fieldFile.getPath());
+                            if (pref != null) {
+                                pref.put("last_input_field", fieldFile.getPath());
+                            }
                         }
                     }
                 });
@@ -527,7 +548,9 @@ public class QuadUIWindow extends Window implements Bindable {
                         if (sheet.getResult()) {
                             File strategyFile = browse.getSelectedFile();
                             strategyText.setText(strategyFile.getPath());
-                            pref.put("last_input_strategy", strategyFile.getPath());
+                            if (pref != null) {
+                                pref.put("last_input_strategy", strategyFile.getPath());
+                            }
                         }
                     }
                 });
@@ -693,41 +716,6 @@ public class QuadUIWindow extends Window implements Bindable {
                     if (!isDomeApplied) {
                         dumpToAceb(data);
                     }
-//                        if (convertExpText.getText().toLowerCase().endsWith(".json")) {
-//                        // Check if the data has been applied with DOME.
-//                        boolean isDomeApplied = false;
-//                        ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
-//                        for (HashMap exp : exps) {
-//                            if (MapUtil.getValueOr(exp, "dome_applied", "").equals("Y")) {
-//                                isDomeApplied = true;
-//                                break;
-//                            }
-//                        }
-//                        if (exps.isEmpty()) {
-//                            ArrayList<HashMap> soils = MapUtil.getObjectOr(data, "soils", new ArrayList());
-//                            ArrayList<HashMap> weathers = MapUtil.getObjectOr(data, "weathers", new ArrayList());
-//                            for (HashMap soil : soils) {
-//                                if (MapUtil.getValueOr(soil, "dome_applied", "").equals("Y")) {
-//                                    isDomeApplied = true;
-//                                    break;
-//                                }
-//                            }
-//                            if (!isDomeApplied) {
-//                                for (HashMap wth : weathers) {
-//                                    if (MapUtil.getValueOr(wth, "dome_applied", "").equals("Y")) {
-//                                        isDomeApplied = true;
-//                                        break;
-//                                    }
-//                                }
-//                            }
-//                        }
-//                        // If it has not been applied with DOME, then dump to ACEB
-//                        if (!isDomeApplied) {
-//                            dumpToAceb(data);
-//                        }
-//                    } else if (!convertExpText.getText().toLowerCase().endsWith(".aceb")) {
-//                        dumpToAceb(data);
-//                    }
 
                     if (mode.equals("none")) {
                         if (!acebOnly) {
@@ -781,12 +769,6 @@ public class QuadUIWindow extends Window implements Bindable {
                     }
                 }
             }
-            // If it has not been applied with DOME, then dump to ACEB
-            if (!isDomeApplied) {
-                dumpToAceb(data);
-            }
-        } else if (!filePath.endsWith(".aceb")) {
-            isDomeApplied = true;
         }
         
         return isDomeApplied;
@@ -872,7 +854,9 @@ public class QuadUIWindow extends Window implements Bindable {
                 if (acebOnly) {
                     acebOnlyRet = false;
                 }
-                if (isDome) {
+                if (acebOnly) {
+                    toOutput(result, null);
+                } else if (isDome) {
                     reviseData(result);
                     toOutput(result, null);
                 }
@@ -1316,7 +1300,10 @@ public class QuadUIWindow extends Window implements Bindable {
                 return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
             }
         } else {
-            String lastPath = pref.get(lastPathId, "");
+            String lastPath = "";
+            if (pref != null) {
+                lastPath = pref.get(lastPathId, "");
+            }
             File tmp = new File(lastPath);
             if (lastPath.equals("") || !tmp.exists()) {
                 return new FileBrowserSheet(FileBrowserSheet.Mode.OPEN);
@@ -1330,12 +1317,18 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void initCheckBox(Checkbox cb, final String lastSelectId) {
-        cb.setSelected(pref.getBoolean(lastSelectId, false));
+        boolean lastChoice = false;
+        if (pref != null) {
+            lastChoice = pref.getBoolean(lastSelectId, false);
+        }
+        cb.setSelected(lastChoice);
         cb.getButtonStateListeners().add(new ButtonStateListener() {
 
             @Override
             public void stateChanged(Button button, State state) {
-                pref.putBoolean(lastSelectId, button.isSelected());
+                if (pref != null) {
+                    pref.putBoolean(lastSelectId, button.isSelected());
+                }
             }
         });
     }
