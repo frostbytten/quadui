@@ -17,6 +17,8 @@ import org.agmip.ace.AceSoil;
 import org.agmip.ace.AceWeather;
 import org.agmip.ace.io.AceParser;
 import org.agmip.common.Functions;
+import org.agmip.dome.BatchEngine;
+import org.agmip.translators.csv.BatchInput;
 import org.agmip.util.JSONAdapter;
 import static org.agmip.util.JSONAdapter.*;
 import org.agmip.util.MapUtil;
@@ -63,6 +65,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private PushButton browseSoilToConvert = null;
     private PushButton browseOutputDir = null;
     private PushButton browseLinkFile = null;
+    private PushButton browseBatchFile = null;
     private PushButton browseFieldFile = null;
     private PushButton browseStrategyFile = null;
     private ButtonGroup runType = null;
@@ -79,11 +82,13 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox optionCompress = null;
     private Checkbox optionOverwrite = null;
     private Checkbox optionLinkage = null;
+    private Checkbox optionBatch = null;
     private Checkbox optionAcebOnly = null;
     private Label txtStatus = null;
     private Label txtAutoDomeApplyMsg = null;
     private Label txtVersion = null;
     private Label lblLink = null;
+    private Label lblBatch = null;
     private Label lblField = null;
     private Label lblStrategy = null;
     private TextInput outputText = null;
@@ -92,6 +97,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private TextInput convertCulText = null;
     private TextInput convertSoilText = null;
     private TextInput linkText = null;
+    private TextInput batchText = null;
     private TextInput fieldText = null;
     private TextInput strategyText = null;
     private ArrayList<Checkbox> checkboxGroup = new ArrayList<Checkbox>();
@@ -109,6 +115,9 @@ public class QuadUIWindow extends Window implements Bindable {
     private boolean isCulActived = true;
     private boolean isSoilActived = false;
     private HashMap modelSpecFiles;
+    HashMap<String, Object> batch;
+    private BatchEngine batEngine;
+    private String outputDir = "";
 
     public QuadUIWindow() {
         try {
@@ -167,8 +176,8 @@ public class QuadUIWindow extends Window implements Bindable {
             validateInputFile(errs, convertCulText.getText(), "cultivar", new String[]{"_specific/"});
         }
         
-        File outputDir = new File(outputText.getText());
-        if (!outputDir.exists() || !outputDir.isDirectory()) {
+        File dir = new File(outputText.getText());
+        if (!dir.exists() || !dir.isDirectory()) {
             errs.add("You need to select an output directory");
         }
         return errs;
@@ -223,6 +232,7 @@ public class QuadUIWindow extends Window implements Bindable {
         browseSoilToConvert     = (PushButton) ns.get("browseConvertSoilButton");
         browseOutputDir     = (PushButton) ns.get("browseOutputButton");
         browseLinkFile      = (PushButton) ns.get("browseLinkButton");
+        browseBatchFile     = (PushButton) ns.get("browseBatchButton");
         browseFieldFile     = (PushButton) ns.get("browseFieldButton");
         browseStrategyFile  = (PushButton) ns.get("browseStrategyButton");
         runType             = (ButtonGroup) ns.get("runTypeButtons");
@@ -230,6 +240,7 @@ public class QuadUIWindow extends Window implements Bindable {
         txtAutoDomeApplyMsg = (Label) ns.get("txtAutoDomeApplyMsg");
         txtVersion          = (Label) ns.get("txtVersion");
         lblLink             = (Label) ns.get("linkLabel");
+        lblBatch             = (Label) ns.get("batchLabel");
         lblField            = (Label) ns.get("fieldLabel");
         lblStrategy         = (Label) ns.get("strategyLabel");
         convertExpText         = (TextInput) ns.get("convertExpText");
@@ -238,6 +249,7 @@ public class QuadUIWindow extends Window implements Bindable {
         convertSoilText      = (TextInput) ns.get("convertSoilText");
         outputText          = (TextInput) ns.get("outputText");
         linkText            = (TextInput) ns.get("linkText");
+        batchText           = (TextInput) ns.get("batchText");
         fieldText           = (TextInput) ns.get("fieldText");
         strategyText        = (TextInput) ns.get("strategyText");
         convertExpCB        = (Checkbox) ns.get("convertExpCB");
@@ -253,6 +265,7 @@ public class QuadUIWindow extends Window implements Bindable {
         optionCompress      = (Checkbox) ns.get("option-compress");
         optionOverwrite     = (Checkbox) ns.get("option-overwrite");
         optionLinkage       = (Checkbox) ns.get("option-linkage");
+        optionBatch         = (Checkbox) ns.get("option-batch");
         optionAcebOnly      = (Checkbox) ns.get("option-acebonly");
 
         checkboxGroup.add(modelApsim);
@@ -285,10 +298,17 @@ public class QuadUIWindow extends Window implements Bindable {
                     Alert.alert(MessageType.ERROR, "Cannot Convert", pane, QuadUIWindow.this);
                     return;
                 }
-                modelSpecFiles = null;
+
                 LOG.info("Starting translation job");
                 try {
-                    startTranslation();
+                    batch = null;
+                    batEngine = null;
+                    if (batchText.isEnabled() && !batchText.getText().equals("")) {
+                        prepareBatchRun();
+                    } else {
+                        startTranslation();
+                    }
+                    
                 } catch (Exception ex) {
                     LOG.error(getStackTrace(ex));
                     if (ex.getClass().getSimpleName().equals("ZipException")) {
@@ -299,6 +319,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     } else {
                         Alert.alert(MessageType.ERROR, ex.toString(), QuadUIWindow.this);
                     }
+//                    }
                     enableConvertIndicator(false);
                 }
             }
@@ -450,16 +471,20 @@ public class QuadUIWindow extends Window implements Bindable {
                         browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO, f.getParent());
                     }
                 } else {
-                    browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO, outputText.getText());
+                    if (!new File(outputText.getText()).exists()) {
+                        browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO);
+                    } else {
+                        browse = new FileBrowserSheet(FileBrowserSheet.Mode.SAVE_TO, outputText.getText());
+                    }
                 }
                 browse.open(QuadUIWindow.this, new SheetCloseListener() {
                     @Override
                     public void sheetClosed(Sheet sheet) {
                         if (sheet.getResult()) {
-                            File outputDir = browse.getSelectedFile();
-                            outputText.setText(outputDir.getPath());
+                            File dir = browse.getSelectedFile();
+                            outputText.setText(dir.getPath());
                             if (pref != null) {
-                                pref.put("last_output", outputDir.getPath());
+                                pref.put("last_output", dir.getPath());
                             }
                         }
                     }
@@ -493,6 +518,33 @@ public class QuadUIWindow extends Window implements Bindable {
                             // Disable auto apply when link csv file is provided
                             txtAutoDomeApplyMsg.setText("");
                             autoApply = false;
+                        }
+                    }
+                });
+            }
+        });
+
+        browseBatchFile.getButtonPressListeners().add(new ButtonPressListener() {
+            @Override
+            public void buttonPressed(Button button) {
+                final FileBrowserSheet browse = openFileBrowserSheet("last_input_batch");
+                browse.setDisabledFileFilter(new Filter<File>() {
+
+                    @Override
+                    public boolean include(File file) {
+                        return (file.isFile()
+                                && (!file.getName().toLowerCase().endsWith(".csv")));
+                    }
+                });
+                browse.open(QuadUIWindow.this, new SheetCloseListener() {
+                    @Override
+                    public void sheetClosed(Sheet sheet) {
+                        if (sheet.getResult()) {
+                            File batchFile = browse.getSelectedFile();
+                            batchText.setText(batchFile.getPath());
+                            if (pref != null) {
+                                pref.put("last_input_batch", batchFile.getPath());
+                            }
                         }
                     }
                 });
@@ -643,6 +695,17 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         });
 
+        optionBatch.getButtonStateListeners().add(new ButtonStateListener() {
+            @Override
+            public void stateChanged(Button button, State state) {
+                if (state.equals(State.UNSELECTED)) {
+                    enableBatchFile(true);
+                } else {
+                    enableBatchFile(false);
+                }
+            }
+        });
+
         optionAcebOnly.getButtonStateListeners().add(new ButtonStateListener() {
             @Override
             public void stateChanged(Button button, State state) {
@@ -667,10 +730,21 @@ public class QuadUIWindow extends Window implements Bindable {
         initCheckBox(optionOverwrite, "last_option_select_overwrite");
     }
 
-    private void startTranslation() throws Exception {
+    private void prepareBatchRun() {
         enableConvertIndicator(true);
-        txtStatus.setText("Importing data...");
-        LOG.info("Importing data...");
+        LOG.info("Loading batch file...");
+        this.batch = loadBatchFile(batchText.getText());
+        this.batEngine = new BatchEngine(this.batch);
+        if (batEngine.hasNext()) {
+            startTranslation();
+        }
+    }
+    
+    private void startTranslation() {
+        enableConvertIndicator(true);
+        outputDir = getOutputDir2();
+        txtStatus.setText(getCurBatchInfo(false) + "Importing data...");
+        LOG.info(getCurBatchInfo(false) + "Importing data...");
         TranslateFromTask task;
         ArrayList<String> inputFiles = new ArrayList();
         if (isExpActived) {
@@ -685,55 +759,106 @@ public class QuadUIWindow extends Window implements Bindable {
         if (isSoilActived) {
             inputFiles.add(convertSoilText.getText());
         }
-        task = new TranslateFromTask(inputFiles.toArray(new String[0]));
+        try {
+            task = new TranslateFromTask(inputFiles.toArray(new String[0]));
+            TaskListener<HashMap> listener = new TaskListener<HashMap>() {
+
+                @Override
+                public void taskExecuted(Task<HashMap> t) {
+                    HashMap data = t.getResult();
+                    if (!data.containsKey("errors")) {
+                        modelSpecFiles = (HashMap) data.remove("ModelSpec");
+
+                        // Dump input data into aceb format
+                        boolean isDomeApplied = true;
+                        if (isExpActived && (isWthActived || isSoilActived)) {
+                            isDomeApplied = false;
+                        } else if (isWthActived && isSoilActived) {
+                            isDomeApplied = false;
+                        } else {
+                            if (isExpActived) {
+                                isDomeApplied = isDomeApplied(convertExpText.getText().toLowerCase(), data);
+                            } else {
+                                if (isWthActived) {
+                                    isDomeApplied = isDomeApplied(convertWthText.getText().toLowerCase(), data);
+                                }
+                                if (isDomeApplied && isSoilActived) {
+                                    isDomeApplied = isDomeApplied(convertSoilText.getText().toLowerCase(), data);
+                                }
+                            }
+                        }
+
+                        if (!isDomeApplied) {
+                            dumpToAceb(data);
+                        }
+
+                        if (batEngine != null) {
+                            applyBatch(data);
+                        } else {
+                            if (mode.equals("none")) {
+                                if (!acebOnly) {
+                                    toOutput(data, null);
+                                }
+                            } else {
+                                applyDome(data, mode);
+                            }
+                        }
+                        
+
+                        
+                    } else {
+                        Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
+                        enableConvertIndicator(false);
+                    }
+                }
+
+                @Override
+                public void executeFailed(Task<HashMap> arg0) {
+                    Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
+                    LOG.error(getCurBatchInfo(false) + getStackTrace(arg0.getFault()));
+                    enableConvertIndicator(false);
+                }
+            };
+            task.execute(new TaskAdapter<HashMap>(listener));
+        } catch (Exception ex) {
+            LOG.error(getCurBatchInfo(false) + getStackTrace(ex));
+            if (ex.getClass().getSimpleName().equals("ZipException")) {
+                final BoxPane pane = new BoxPane(Orientation.VERTICAL);
+                pane.add(new Label("Please make sure using the latest ADA"));
+                pane.add(new Label("(no earlier than 0.3.6) to create zip file"));
+                Alert.alert(MessageType.ERROR, "Zip file broken", pane, QuadUIWindow.this);
+            } else {
+                Alert.alert(MessageType.ERROR, ex.toString(), QuadUIWindow.this);
+            }
+//                    }
+            enableConvertIndicator(false);
+        }
+    }
+    
+    private void applyBatch(HashMap data) {
+        
+        // Apply batch DOME
+        LOG.info(getCurBatchInfo(false) + "Applying batch [" + batEngine.getBatchName() + "]...");
+        
+        ApplyBatchTask task = new ApplyBatchTask(data, batEngine);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
 
             @Override
-            public void taskExecuted(Task<HashMap> t) {
-                HashMap data = t.getResult();
-                if (!data.containsKey("errors")) {
-                    modelSpecFiles = (HashMap) data.remove("ModelSpec");
-
-                    // Dump input data into aceb format
-                    boolean isDomeApplied = true;
-                    if (isExpActived && (isWthActived || isSoilActived)) {
-                        isDomeApplied = false;
-                    } else if (isWthActived && isSoilActived) {
-                        isDomeApplied = false;
-                    } else {
-                        if (isExpActived) {
-                            isDomeApplied = isDomeApplied(convertExpText.getText().toLowerCase(), data);
-                        } else {
-                            if (isWthActived) {
-                                isDomeApplied = isDomeApplied(convertWthText.getText().toLowerCase(), data);
-                            }
-                            if (isDomeApplied && isSoilActived) {
-                                isDomeApplied = isDomeApplied(convertSoilText.getText().toLowerCase(), data);
-                            }
-                        }
-                    }
-                    
-                    if (!isDomeApplied) {
-                        dumpToAceb(data);
-                    }
-
-                    if (mode.equals("none")) {
-                        if (!acebOnly) {
-                            toOutput(data, null);
-                        }
-                    } else {
-                        applyDome(data, mode);
+            public void taskExecuted(Task<HashMap> task) {
+                HashMap data = task.getResult();
+                if (mode.equals("none")) {
+                    if (!acebOnly) {
+                        toOutput(data, null);
                     }
                 } else {
-                    Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
-                    enableConvertIndicator(false);
+                    applyDome(data, mode);
                 }
             }
 
             @Override
-            public void executeFailed(Task<HashMap> arg0) {
-                Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
-                LOG.error(getStackTrace(arg0.getFault()));
+            public void executeFailed(Task<HashMap> task) {
+                Alert.alert(MessageType.ERROR, task.getFault().toString(), QuadUIWindow.this);
+                LOG.error(getCurBatchInfo(false) + getStackTrace(task.getFault()));
                 enableConvertIndicator(false);
             }
         };
@@ -812,27 +937,27 @@ public class QuadUIWindow extends Window implements Bindable {
             isSkippedForLink = true;
         }
         if (isSkipped) {
-            txtStatus.setText("Skip generating ACE Binary file for DOMEs applied for " + fileName + " ...");
-            LOG.info("Skip generating ACE Binary file for DOMEs applied for {} ...", fileName);
+            txtStatus.setText(getCurBatchInfo(true) + "Skip generating ACE Binary file for DOMEs applied for " + fileName + " ...");
+            LOG.info(getCurBatchInfo(true) + "Skip generating ACE Binary file for DOMEs applied for {} ...", fileName);
         } else if (isDome) {
-            txtStatus.setText("Generate DOME file for DOMEs applied for " + fileName + " ...");
-            LOG.info("Generate DOME file for DOMEs applied for {} ...", fileName);
+            txtStatus.setText(getCurBatchInfo(true) + "Generate DOME file for DOMEs applied for " + fileName + " ...");
+            LOG.info(getCurBatchInfo(true) + "Generate DOME file for DOMEs applied for {} ...", fileName);
         } else {
-            txtStatus.setText("Generate ACE Binary file for " + fileName + " ...");
-            LOG.info("Generate ACE Binary file for {} ...", fileName);
+            txtStatus.setText(getCurBatchInfo(false) + "Generate ACE Binary file for " + fileName + " ...");
+            LOG.info(getCurBatchInfo(false) + "Generate ACE Binary file for {} ...", fileName);
         }
         if (isSkippedForLink) {
-            txtStatus.setText("Skip generating ALNK file for " + fileName + " ...");
-            LOG.info("Skip generating ALNK file for {} ...", fileName);
+            txtStatus.setText(getCurBatchInfo(true) + "Skip generating ALNK file for " + fileName + " ...");
+            LOG.info(getCurBatchInfo(true) + "Skip generating ALNK file for {} ...", fileName);
         }
         DumpToAceb task = new DumpToAceb(filePath, filePathL, outputText.getText(), map, isDome, isSkipped, isSkippedForLink);
         TaskListener<HashMap<String, String>> listener = new TaskListener<HashMap<String, String>>() {
             @Override
             public void taskExecuted(Task<HashMap<String, String>> t) {
                 if (isDome) {
-                    LOG.info("Dump to ACE Binary for DOMEs applied for {} successfully", fileName);
+                    LOG.info(getCurBatchInfo(true) + "Dump to ACE Binary for DOMEs applied for {} successfully", fileName);
                 } else {
-                    LOG.info("Dump to ACE Binary for {} successfully", fileName);
+                    LOG.info(getCurBatchInfo(true) + "Dump to ACE Binary for {} successfully", fileName);
                 }
                 if (acebOnly) {
                     toOutput(result, t.getResult());
@@ -845,11 +970,11 @@ public class QuadUIWindow extends Window implements Bindable {
             @Override
             public void executeFailed(Task<HashMap<String, String>> arg0) {
                 if (isDome) {
-                    LOG.info("Dump to ACE Binary for DOMEs applied for {} failed", fileName);
+                    LOG.info(getCurBatchInfo(true) + "Dump to ACE Binary for DOMEs applied for {} failed", fileName);
                 } else {
-                    LOG.info("Dump to ACE Binary for {} failed", fileName);
+                    LOG.info(getCurBatchInfo(true) + "Dump to ACE Binary for {} failed", fileName);
                 }
-                LOG.error(getStackTrace(arg0.getFault()));
+                LOG.error(getCurBatchInfo(true) + getStackTrace(arg0.getFault()));
                 Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
                 if (acebOnly) {
                     acebOnlyRet = false;
@@ -934,25 +1059,26 @@ public class QuadUIWindow extends Window implements Bindable {
                 data.put("weathers", arr);
             }
         } catch (IOException e) {
-            LOG.warn(Functions.getStackTrace(e));
+            LOG.warn(getCurBatchInfo(true) + Functions.getStackTrace(e));
         }
     }
 
     private void applyDome(HashMap map, String mode) {
-        if (acebOnly) {
-            LOG.info("ACE Binary only mode, skip applying DOME.");
-            dumpToAceb(map, true);
-            return;
-        }
-        txtStatus.setText("Applying DOME...");
-        LOG.info("Applying DOME...");
-        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map, autoApply);
+        txtStatus.setText(getCurBatchInfo(true) + "Applying DOME...");
+        LOG.info(getCurBatchInfo(true) + "Applying DOME...");
+        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map, autoApply, acebOnly);
+        final HashMap batchDome = this.batch;
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
             public void taskExecuted(Task<HashMap> t) {
                 HashMap data = t.getResult();
                 if (!data.containsKey("errors")) {
                     //LOG.error("Domeoutput: {}", data.get("domeoutput"));
+                    if (batEngine != null) {
+                        HashMap tmp = new HashMap();
+                        tmp.put(batEngine.getDomeName(), batchDome);
+                        data.put("batDomes", tmp);
+                    }
                     dumpToAceb(data, true);
 //                    dumpToAceb(fieldText.getText(), (HashMap) data.get("ovlDomes"));
 //                    dumpToAceb(strategyText.getText(), (HashMap) data.get("stgDomes"));
@@ -967,7 +1093,7 @@ public class QuadUIWindow extends Window implements Bindable {
             @Override
             public void executeFailed(Task<HashMap> arg0) {
                 Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
-                LOG.error(getStackTrace(arg0.getFault()));
+                LOG.error(getCurBatchInfo(true) + getStackTrace(arg0.getFault()));
                 enableConvertIndicator(false);
             }
         };
@@ -1006,19 +1132,21 @@ public class QuadUIWindow extends Window implements Bindable {
         // ********************** DEUBG ************************
         if (acebOnly) {
             if (acebOnlyRet) {
-                txtStatus.setText("Completed");
-                Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
+                txtStatus.setText(getCurBatchInfo(true) + "Completed");
+                if (batEngine == null || !batEngine.hasNext()) {
+                    Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
+                    LOG.info("=== Completed translation job ===");
+                }
                 enableConvertIndicator(false);
-                LOG.info("=== Completed translation job ===");
                 return;
             } else {
-                txtStatus.setText("Failed");
+                txtStatus.setText(getCurBatchInfo(true) + "Failed");
                 Alert.alert(MessageType.ERROR, "Translation failed", QuadUIWindow.this);
                 enableConvertIndicator(false);
                 return;
             }
         }
-        txtStatus.setText("Generating model input files...");
+        txtStatus.setText(getCurBatchInfo(true) + "Generating model input files...");
         domeIdHashMap = saveDomeHashedIds(map, domeIdHashMap);
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {
@@ -1040,7 +1168,7 @@ public class QuadUIWindow extends Window implements Bindable {
             models.add("CropGrow-NAU");
         }
         if (optionOverwrite.isSelected()) {
-            LOG.info("Clean the previous output folders...");
+            LOG.info(getCurBatchInfo(true) + "Clean the previous output folders...");
             String outPath = outputText.getText() + File.separator;
             for (String model : models) {
                 if (model.equalsIgnoreCase("JSON")) {
@@ -1048,28 +1176,31 @@ public class QuadUIWindow extends Window implements Bindable {
                 }
                 File dir = new File(outPath + model);
                 if (!Functions.clearDirectory(dir)) {
-                    LOG.warn("Failed to clean {} folder since it is being used by other process", model);
+                    LOG.warn(getCurBatchInfo(true) + "Failed to clean {} folder since it is being used by other process", model);
                 }
             }
         }
-        LOG.info("Generating model input files...");
+        LOG.info(getCurBatchInfo(true) + "Generating model input files...");
 
         if (models.size() == 1 && models.get(0).equals("JSON")) {
-            DumpToJson task = new DumpToJson(convertExpText.getText(), outputText.getText(), map);
+            DumpToJson task = new DumpToJson(convertExpText.getText(), outputDir, map);
             TaskListener<String> listener = new TaskListener<String>() {
 
                 @Override
                 public void taskExecuted(Task<String> t) {
-                    LOG.info("Dump to JSON successfully");
-                    txtStatus.setText("Completed");
-                    Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
+                    LOG.info(getCurBatchInfo(true) + "Dump to JSON successfully");
+                    txtStatus.setText(getCurBatchInfo(true) + "Completed");
+                    if (batEngine == null || !batEngine.hasNext()) {
+                        Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
+                        LOG.info("=== Completed translation job ===");
+                    }
                     enableConvertIndicator(false);
                 }
-
+                    
                 @Override
                 public void executeFailed(Task<String> arg0) {
-                    LOG.info("Dump to JSON failed");
-                    LOG.error(getStackTrace(arg0.getFault()));
+                    LOG.info(getCurBatchInfo(true) + "Dump to JSON failed");
+                    LOG.error(getCurBatchInfo(true) + getStackTrace(arg0.getFault()));
                     Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
                     enableConvertIndicator(false);
                 }
@@ -1077,19 +1208,19 @@ public class QuadUIWindow extends Window implements Bindable {
             task.execute(new TaskAdapter<String>(listener));
         } else {
             if (models.indexOf("JSON") != -1) {
-                DumpToJson task = new DumpToJson(convertExpText.getText(), outputText.getText(), map);
+                DumpToJson task = new DumpToJson(convertExpText.getText(), outputDir, map);
                 TaskListener<String> listener = new TaskListener<String>() {
 
                     @Override
                     public void taskExecuted(Task<String> t) {
-                        LOG.info("Dump to JSON successfully");
+                        LOG.info(getCurBatchInfo(true) + "Dump to JSON successfully");
 //                        toOutput2(models, t.getResult());
                     }
 
                     @Override
                     public void executeFailed(Task<String> arg0) {
-                        LOG.info("Dump to JSON failed");
-                        LOG.error(getStackTrace(arg0.getFault()));
+                        LOG.info(getCurBatchInfo(true) + "Dump to JSON failed");
+                        LOG.error(getCurBatchInfo(true) + getStackTrace(arg0.getFault()));
                         Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
 //                        enableConvertIndicator(false);
                     }
@@ -1173,24 +1304,71 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void toOutput2(ArrayList<String> models, HashMap map, HashMap<String, String> domeIdHashMap) {
-        TranslateToTask task = new TranslateToTask(models, map, outputText.getText(), optionCompress.isSelected(), domeIdHashMap, modelSpecFiles);
+        TranslateToTask task  = new TranslateToTask(models, map, outputDir, optionCompress.isSelected(), domeIdHashMap, modelSpecFiles);
         TaskListener<String> listener = new TaskListener<String>() {
             @Override
             public void executeFailed(Task<String> arg0) {
                 Alert.alert(MessageType.ERROR, arg0.getFault().toString(), QuadUIWindow.this);
-                LOG.error(getStackTrace(arg0.getFault()));
+                LOG.error(getCurBatchInfo(true) + getStackTrace(arg0.getFault()));
                 enableConvertIndicator(false);
             }
 
             @Override
             public void taskExecuted(Task<String> arg0) {
-                txtStatus.setText("Completed");
-                Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
+                txtStatus.setText(getCurBatchInfo(true) + "Completed");
+                if (batEngine == null || !batEngine.hasNext()) {
+                    Alert.alert(MessageType.INFO, "Translation completed", QuadUIWindow.this);
+                    LOG.info("=== Completed translation job ===");
+                }
                 enableConvertIndicator(false);
-                LOG.info("=== Completed translation job ===");
             }
         };
         task.execute(new TaskAdapter<String>(listener));
+    }
+    
+    private String getOutputDir2() {
+        String path;
+        if (batEngine == null) {
+            path = outputText.getText();
+        } else {
+            path = outputText.getText() + File.separator + "batch-" + batEngine.getCurGroupId();
+            File dir = new File(path);
+            int count = 0;
+            while (dir.exists() && dir.listFiles().length > 0) {
+                if (cleanBatchDir(path)) {
+                    break;
+                }
+                count++;
+                dir = new File(path + "_" + count);
+            }
+            if (count > 0) {
+                path += "_" + count;
+            }
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+        }
+        
+        return path;
+    }
+    
+    private boolean cleanBatchDir(String path) {
+        if (optionOverwrite.isSelected()) {
+            if (Functions.clearDirectory(new File(path))) {
+                return true;
+            } else {
+               File dir = new File(path);
+               for (File f :dir.listFiles()) {
+                   if (f.isDirectory() && f.listFiles().length != 0) {
+                       return false;
+                   }
+               }
+               return true;
+            }
+        } else {
+            return false;
+        }
+        
     }
 
     private static String getStackTrace(Throwable aThrowable) {
@@ -1205,6 +1383,14 @@ public class QuadUIWindow extends Window implements Bindable {
         lblLink.setEnabled(enabled);
         linkText.setEnabled(enabled);
         browseLinkFile.setEnabled(enabled);
+        lblLink.repaint();
+    }
+
+    private void enableBatchFile(boolean enabled) {
+        lblBatch.setEnabled(enabled);
+        batchText.setEnabled(enabled);
+        browseBatchFile.setEnabled(enabled);
+        lblBatch.repaint();
     }
 
     private void enableFieldOverlay(boolean enabled) {
@@ -1220,8 +1406,13 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void enableConvertIndicator(boolean enabled) {
-        convertIndicator.setActive(enabled);
-        convertButton.setEnabled(!enabled);
+        if (!enabled && batEngine != null && batEngine.hasNext()) {
+            LOG.info("=== Batch " + batEngine.getLastGroupId() + " finished ===");
+            startTranslation();
+        } else {
+            convertIndicator.setActive(enabled);
+            convertButton.setEnabled(!enabled);
+        }
     }
 
     private void SetAutoDomeApplyMsg() {
@@ -1331,5 +1522,39 @@ public class QuadUIWindow extends Window implements Bindable {
                 }
             }
         });
+    }
+
+    private HashMap<String, Object> loadBatchFile(String fileName) {
+        String fileNameTest = fileName.toUpperCase();
+        LOG.debug("Loading Batch file: {}", fileName);
+        HashMap batDome = null;
+
+        try {
+            if (fileNameTest.endsWith(".CSV")) {
+                LOG.debug("Entering Batch CSV file handling");
+                BatchInput reader = new BatchInput();
+                batDome = (HashMap<String, Object>) reader.readFile(fileName);
+            } else if (fileNameTest.endsWith(".DOME")) {
+                // TODO
+            }
+
+            return batDome;
+        } catch (Exception ex) {
+            LOG.error("Error processing DOME file: {}", ex.getMessage());
+            return new HashMap();
+        }
+    }
+    
+    private String getCurBatchInfo(boolean isBatchApplied) {
+        if (batEngine == null) {
+            return "";
+        } else {
+            if (isBatchApplied) {
+                return "[Batch-" + batEngine.getLastGroupId()+ "] ";
+            } else {
+                return "[Batch-" + batEngine.getCurGroupId() + "] ";
+            }
+            
+        }
     }
 }

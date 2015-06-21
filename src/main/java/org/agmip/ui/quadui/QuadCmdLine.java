@@ -572,13 +572,8 @@ public class QuadCmdLine {
     }
 
     private void applyDome(HashMap map, String mode) {
-        if (acebOnly) {
-            LOG.info("ACE Binary only mode, skip applying DOME.");
-            dumpToAceb(map, true);
-            return;
-        }
         LOG.info("Applying DOME...");
-        ApplyDomeTask task = new ApplyDomeTask(linkPath, fieldPath, strategyPath, mode, map, isAutoDomeApply(), thrPoolSize);
+        ApplyDomeTask task = new ApplyDomeTask(linkPath, fieldPath, strategyPath, mode, map, isAutoDomeApply(), acebOnly, thrPoolSize);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
             public void taskExecuted(Task<HashMap> t) {
