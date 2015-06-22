@@ -70,6 +70,7 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
                 domeIdHashMap = new HashMap();
                 buildDomeHash("ovlDomes");
                 buildDomeHash("stgDomes");
+                buildDomeHash("batDomes");
                 if (!isSkipped) {
                     AceGenerator.generateACEB(file, toJSON(domeHashData));
                 }

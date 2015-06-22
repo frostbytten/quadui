@@ -1,6 +1,5 @@
 package org.agmip.ui.quadui;
 
-import com.rits.cloning.Cloner;
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
@@ -39,12 +38,14 @@ public class ApplyDomeTask extends Task<HashMap> {
     private HashMap source;
     private String mode;
     private boolean autoApply;
+    private boolean acebOnly;
     private int thrPoolSize;
 
-    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, boolean autoApply) {
+    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, boolean autoApply, boolean acebOnly) {
         this.source = m;
         this.mode = mode;
         this.autoApply = autoApply;
+        this.acebOnly = acebOnly;
         // Setup the domes here.
         loadDomeLinkFile(linkFile);
         log.debug("link csv: {}", ovlLinks);
@@ -56,8 +57,8 @@ public class ApplyDomeTask extends Task<HashMap> {
         thrPoolSize = Runtime.getRuntime().availableProcessors();
     }
 
-    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, boolean autoApply, int thrPoolSize) {
-        this(linkFile, fieldFile, strategyFile, mode, m, autoApply);
+    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, boolean autoApply, boolean acebOnly, int thrPoolSize) {
+        this(linkFile, fieldFile, strategyFile, mode, m, autoApply, acebOnly);
         this.thrPoolSize = thrPoolSize;
     }
 
@@ -146,6 +147,12 @@ public class ApplyDomeTask extends Task<HashMap> {
         } else if (id.matches(".+_\\d+__\\d+$")) {
             altLinkIds.add(idType + "_" + id.replaceAll("__\\d+$", ""));
             altLinkIds.add(idType + "_" + id.replaceAll("_\\d+__\\d+$", ""));
+        } else if (id.matches(".+_\\d+_b\\S+$")) {
+            altLinkIds.add(idType + "_" + id.replaceAll("_\\d+_b\\S+$", ""));
+            altLinkIds.add(idType + "_" + id + "__1");
+        } else if (id.matches(".+_\\d+_b\\S+__\\d+$")) {
+            altLinkIds.add(idType + "_" + id.replaceAll("_b\\S+__\\d+$", ""));
+            altLinkIds.add(idType + "_" + id.replaceAll("_\\d+_b\\S+__\\d+$", ""));
         }
         altLinkIds.add(idType + "_" + id);
         for (String linkId : altLinkIds) {
@@ -164,38 +171,47 @@ public class ApplyDomeTask extends Task<HashMap> {
         HashMap<String, String> domeClimIdMap;
         if (domeType.equals("strategy")) {
             domes = stgDomes;
-            domeClimIdMap = ovlNewDomeIdMap;
+            domeClimIdMap = stgNewDomeIdMap;
         } else if (domeType.equals("overlay")) {
             domes = ovlDomes;
-            domeClimIdMap = stgNewDomeIdMap;
+            domeClimIdMap = ovlNewDomeIdMap;
         } else {
             return domeIds;
         }
         
         StringBuilder newDomeIds = new StringBuilder();
-        for (String domeId : domeIds.split("[|]")) {
+        for (String domeId : domeIds.toUpperCase().split("[|]")) {
             String[] metas = domeId.split("-");
             if (metas.length < 7) {
                 if (domeClimIdMap.containsKey(domeId)) {
                     domeId = domeClimIdMap.get(domeId);
                 } else {
+                    StringBuilder newDomeId = new StringBuilder();
+                    for (int i = 0; i < metas.length - 1; i++) {
+                        newDomeId.append(metas[i]).append("-");
+                    }
+                    newDomeId.append("-");
+                    newDomeId.append(metas[metas.length - 1]);
                     String climId = "";
-                    HashMap<String, Object> dome = MapUtil.getObjectOr(domes, domeId, new HashMap());
+                    HashMap<String, Object> dome = MapUtil.getObjectOr(domes, newDomeId.toString(), new HashMap());
                     // Only auto-fix the clim_id for seasonal strategy DOME
                     if (!domeType.equals("overlay")) {
-                        climId = MapUtil.getValueOr(entry, "clim_id", "").toUpperCase();
                         if (!dome.isEmpty()) {
+                            climId = "";
                             ArrayList<HashMap<String, String>> rules = DomeUtil.getRules(dome);
                             for (HashMap<String, String> rule : rules) {
                                 String var = MapUtil.getValueOr(rule, "variable", "").toLowerCase();
                                 if (var.equals("clim_id")) {
                                     climId = MapUtil.getValueOr(rule, "args", climId).toUpperCase();
+                                    break;
                                 }
                             }
+                        } else {
+                            climId = MapUtil.getValueOr(entry, "clim_id", "").toUpperCase();
                         }
                     }
                     
-                    StringBuilder newDomeId = new StringBuilder();
+                    newDomeId = new StringBuilder();
                     for (int i = 0; i < metas.length - 1; i++) {
                         newDomeId.append(metas[i]).append("-");
                     }
@@ -203,6 +219,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                     domeClimIdMap.put(domeId, newDomeId.toString());
                     domeId = newDomeId.toString();
                     DomeUtil.updateMetaInfo(dome, domeId);
+                    domes.put(domeId, dome);
                 }
             }
             newDomeIds.append(domeId).append("|");
@@ -236,7 +253,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                         HashMap<String, Object> dome = translator.getDome();
                         log.debug("dome info: {}", dome.toString());
                         String domeName = DomeUtil.generateDomeName(dome);
-                        if (!domeName.equals("----")) {
+                        if (!domeName.equals("-----")) {
                             domes.put(domeName, new HashMap<String, Object>(dome));
                         }
                     }
@@ -299,8 +316,10 @@ public class ApplyDomeTask extends Task<HashMap> {
         // PLEASE NOTE: This can be a massive undertaking if the source map
         // is really large. Need to find optimization points.
         HashMap<String, Object> output = new HashMap<String, Object>();
-        //HashMap<String, ArrayList<HashMap<String, String>>> dome;
+
         // Load the dome
+        this.stgNewDomeIdMap.clear();
+        this.ovlNewDomeIdMap.clear();
 
         if (ovlDomes.isEmpty() && stgDomes.isEmpty()) {
             log.info("No DOME to apply.");
@@ -341,6 +360,23 @@ public class ApplyDomeTask extends Task<HashMap> {
                 return d;
             }
         }
+        
+//        // If aceb only mode, then skip DOME apply process
+//        if (acebOnly) {
+//            log.info("ACE Binary only mode, skip applying DOME.");
+//            if (noExpMode) {
+//                output.put("domeoutput", source);
+//            } else {
+//                output.put("domeoutput", MapUtil.bundle(flattenedData));
+//            }
+//            if (ovlDomes != null && !ovlDomes.isEmpty()) {
+//                output.put("ovlDomes", ovlDomes);
+//            }
+//            if (stgDomes != null && !stgDomes.isEmpty()) {
+//                output.put("stgDomes", stgDomes);
+//            }
+//            return output;
+//        }
 
         if (mode.equals("strategy")) {
             log.debug("Domes: {}", stgDomes.toString());
@@ -401,7 +437,7 @@ public class ApplyDomeTask extends Task<HashMap> {
 
                 log.info("Apply DOME {} for {}", strategyName, MapUtil.getValueOr(entry, "exname", MapUtil.getValueOr(entry, "soil_id", MapUtil.getValueOr(entry, "wst_id", "<Unknow>"))));
                 log.debug("Looking for ss: {}", strategyName);
-                if (!strategyName.equals("")) {
+                if (!acebOnly && !strategyName.equals("")) {
                     if (stgDomes.containsKey(strategyName)) {
                         log.debug("Found strategyName");
                         entry.put("dome_applied", "Y");
@@ -424,6 +460,9 @@ public class ApplyDomeTask extends Task<HashMap> {
                         setFailedDomeId(entry, "seasonal_dome_failed", strategyName);
                     }
                 }
+            }
+            if (acebOnly) {
+                strategyResults = flattenedData;
             }
             log.debug("=== FINISHED GENERATION ===");
             log.debug("Generated count: {}", strategyResults.size());
@@ -457,7 +496,9 @@ public class ApplyDomeTask extends Task<HashMap> {
         int cnt = 0;
         ArrayList<ApplyDomeRunner> engineRunners = new ArrayList();
         ExecutorService executor;
-        if (thrPoolSize > 1) {
+        if (acebOnly) {
+            executor = null;
+        } else if (thrPoolSize > 1) {
             log.info("Create the thread pool with the size of {} for appling filed overlay DOME", thrPoolSize);
             executor = Executors.newFixedThreadPool(thrPoolSize);
         } else if (thrPoolSize == 1) {
@@ -469,8 +510,8 @@ public class ApplyDomeTask extends Task<HashMap> {
         }
         HashMap<String, HashMap<String, ArrayList<HashMap<String, String>>>> soilDomeMap = new HashMap();
         HashMap<String, HashMap<String, ArrayList<HashMap<String, String>>>> wthDomeMap = new HashMap();
-        HashSet<String> soilIds = getSWIdsSet("soils", new String[]{"soil_id"});
-        HashSet<String> wthIds = getSWIdsSet("weathers", new String[]{"wst_id", "clim_id"});
+        HashSet<String> soilIds = DomeUtil.getSWIdsSet(MapUtil.getRawPackageContents(source, "soils"), "soil_id");
+        HashSet<String> wstIds = DomeUtil.getSWIdsSet(MapUtil.getRawPackageContents(source, "weathers"), "wst_id", "clim_id");
         ArrayList<HashMap> soilDataArr = new ArrayList();
         ArrayList<HashMap> wthDataArr = new ArrayList();
         ArrayList<ArrayList<Engine>> soilEngines = new ArrayList();
@@ -515,8 +556,10 @@ public class ApplyDomeTask extends Task<HashMap> {
                     log.debug("Looking for dome_name: {}", tmpDomeId);
                     if (ovlDomes.containsKey(tmpDomeId)) {
                         domeEngine = new Engine(ovlDomes.get(tmpDomeId));
-                        entry.put("dome_applied", "Y");
-                        entry.put("field_dome_applied", "Y");
+                        if (!acebOnly) {
+                            entry.put("dome_applied", "Y");
+                            entry.put("field_dome_applied", "Y");
+                        }
                         ArrayList<HashMap<String, String>> sRules = domeEngine.extractSoilRules();
                         if (!sRules.isEmpty()) {
                             if (sDomeIds.equals("")) {
@@ -559,7 +602,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                         }
                     }
                     if (!isSameRules) {
-                        replicateSoil(entry, soilIds);
+                        DomeUtil.replicateSoil(entry, soilIds, MapUtil.getRawPackageContents(source, "soils"));
                         soilDataArr.add(entry);
                         soilEngines.add(sEngines);
                         lastAppliedSoilDomes.put(sDomeIds, sRulesTotal);
@@ -581,7 +624,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                         }
                     }
                     if (!isSameRules) {
-                        replicateWth(entry, wthIds);
+                        DomeUtil.replicateWth(entry, wstIds, MapUtil.getRawPackageContents(source, "weathers"));
                         wthDataArr.add(entry);
                         wthEngines.add(wEngines);
                         lastAppliedWthDomes.put(wDomeIds, wRulesTotal);
@@ -591,38 +634,25 @@ public class ApplyDomeTask extends Task<HashMap> {
             }
         }
 
-        for (int i = 0; i < soilDataArr.size(); i++) {
-            for (Engine e : soilEngines.get(i)) {
-                e.apply(flatSoilAndWthData(soilDataArr.get(i), noExpMode));
+        if (!acebOnly && executor != null) {
+            for (int i = 0; i < soilDataArr.size(); i++) {
+                for (Engine e : soilEngines.get(i)) {
+                    e.apply(flatSoilAndWthData(soilDataArr.get(i), noExpMode));
+                }
             }
-        }
-        for (int i = 0; i < wthDataArr.size(); i++) {
-            for (Engine e : wthEngines.get(i)) {
-                e.apply(flatSoilAndWthData(wthDataArr.get(i), noExpMode));
+            for (int i = 0; i < wthDataArr.size(); i++) {
+                for (Engine e : wthEngines.get(i)) {
+                    e.apply(flatSoilAndWthData(wthDataArr.get(i), noExpMode));
+                }
             }
-        }
-        for (ApplyDomeRunner engineRunner : engineRunners) {
-            executor.submit(engineRunner);
-//            engine.apply(flatSoilAndWthData(entry, noExpMode));
-//            ArrayList<String> strategyList = engine.getGenerators();
-//            if (!strategyList.isEmpty()) {
-//                log.warn("The following DOME commands in the field overlay file are ignored : {}", strategyList.toString());
-//            }
-//            if (!noExpMode && !mode.equals("strategy")) {
-//                // Check if there is no weather or soil data matched with experiment
-//                if (((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).isEmpty()) {
-//                    log.warn("No baseline weather data found for: [{}]", MapUtil.getValueOr(entry, "exname", "N/A"));
-//                }
-//                if (((HashMap) MapUtil.getObjectOr(entry, "soil", new HashMap())).isEmpty()) {
-//                    log.warn("No soil data found for:    [{}]", MapUtil.getValueOr(entry, "exname", "N/A"));
-//                }
-//            }
-        }
+            for (ApplyDomeRunner engineRunner : engineRunners) {
+                executor.submit(engineRunner);
+            }
 
-        executor.shutdown();
-        while (!executor.isTerminated()) {
+            executor.shutdown();
+            while (!executor.isTerminated()) {
+            }
         }
-//        executor = null;
 
         if (noExpMode) {
             output.put("domeoutput", source);
@@ -638,14 +668,6 @@ public class ApplyDomeTask extends Task<HashMap> {
         return output;
     }
 
-//    private void flatSoilAndWthData(ArrayList<HashMap<String, Object>> flattenedData, String key) {
-//        ArrayList<HashMap<String, Object>> arr = MapUtil.getRawPackageContents(source, key + "s");
-//        for (HashMap<String, Object> data : arr) {
-//            HashMap<String, Object> tmp = new HashMap<String, Object>();
-//            tmp.put(key, data);
-//            flattenedData.add(tmp);
-//        }
-//    }
     private HashMap<String, Object> flatSoilAndWthData(HashMap<String, Object> data, boolean noExpFlg) {
 
         if (!noExpFlg) {
@@ -727,10 +749,18 @@ public class ApplyDomeTask extends Task<HashMap> {
                         isClimIDchanged = domeEngine.updateWSRef(exp, isStgDome, mode.equals("strategy"));
                         // Check if the wst_id is switch to 8-bit long version
                         String wst_id = MapUtil.getValueOr(exp, "wst_id", "");
+                        String clim_id = MapUtil.getValueOr(exp, "clim_id", "");
+                        // TODO need to handle the case for seasonal strategy since this method will be called twice
+                        // sdsa sdsdsaassds sds
                         if (isStgDome && wst_id.length() < 8) {
-                            exp.put("wst_id", wst_id + "0XXX");
-                            exp.put("clim_id", "0XXX");
+                            if (clim_id.equals("")) {
+                                clim_id = "0XXX";
+                            }
+                            exp.put("wst_id", wst_id + clim_id);
+                            exp.put("clim_id", clim_id);    
                             isClimIDchanged = true;
+                        } else if (isClimIDchanged || !clim_id.equals("")) {
+                            exp.put("clim_id", clim_id);    
                         }
                         log.debug("New exp linkage: {}", exp);
                     }
@@ -790,74 +820,74 @@ public class ApplyDomeTask extends Task<HashMap> {
         }
     }
 
-    private void replicateSoil(HashMap entry, HashSet soilIds) {
-        String newSoilId = MapUtil.getValueOr(entry, "soil_id", "");
-        HashMap data = MapUtil.getObjectOr(entry, "soil", new HashMap());
-        if (data.isEmpty()) {
-            return;
-        }
-        Cloner cloner = new Cloner();
-        HashMap newData = cloner.deepClone(data);
-        ArrayList<HashMap<String, Object>> soils = MapUtil.getRawPackageContents(source, "soils");
-        int count = 1;
-        while (soilIds.contains(newSoilId + "_" + count)) {
-            count++;
-        }
-        newSoilId += "_" + count;
-        newData.put("soil_id", newSoilId);
-        entry.put("soil_id", newSoilId);
-        entry.put("soil", newData);
-        soilIds.add(newSoilId);
-        soils.add(newData);
-    }
-
-    private void replicateWth(HashMap entry, HashSet wthIds) {
-        String newWthId = MapUtil.getValueOr(entry, "wst_id", "");
-        String climId = MapUtil.getValueOr(entry, "clim_id", "");
-        HashMap data = MapUtil.getObjectOr(entry, "weather", new HashMap());
-        if (data.isEmpty()) {
-            return;
-        }
-        Cloner cloner = new Cloner();
-        HashMap newData = cloner.deepClone(data);
-        ArrayList<HashMap<String, Object>> wths = MapUtil.getRawPackageContents(source, "weathers");
-        String inst;
-        if (newWthId.length() > 1) {
-            inst = newWthId.substring(0, 2);
-        } else {
-            inst = newWthId + "0";
-        }
-        newWthId = inst + "01" + climId;
-        int count = 1;
-        while (wthIds.contains(newWthId) && count < 99) {
-            count++;
-            newWthId = String.format("%s%02d%s", inst, count, climId);
-        }
-        if (count == 99 && wthIds.contains(newWthId)) {
-            inst = inst.substring(0, 1);
-            newWthId = inst + "100" + climId;
-            while (wthIds.contains(newWthId)) {
-                count++;
-                newWthId = String.format("%s%03d%s", inst, count, climId);
-            }
-        }
-        newData.put("wst_id", newWthId);
-        entry.put("wst_id", newWthId);
-        entry.put("weather", newData);
-        wthIds.add(newWthId);
-        wths.add(newData);
-    }
-
-    private HashSet<String> getSWIdsSet(String dataKey, String... idKeys) {
-        HashSet<String> ret = new HashSet();
-        ArrayList<HashMap<String, Object>> arr = MapUtil.getRawPackageContents(source, dataKey);
-        for (HashMap data : arr) {
-            StringBuilder sb = new StringBuilder();
-            for (String idKey : idKeys) {
-                sb.append(MapUtil.getValueOr(data, idKey, ""));
-            }
-            ret.add(sb.toString());
-        }
-        return ret;
-    }
+//    private void replicateSoil(HashMap entry, HashSet soilIds) {
+//        String newSoilId = MapUtil.getValueOr(entry, "soil_id", "");
+//        HashMap data = MapUtil.getObjectOr(entry, "soil", new HashMap());
+//        if (data.isEmpty()) {
+//            return;
+//        }
+//        Cloner cloner = new Cloner();
+//        HashMap newData = cloner.deepClone(data);
+//        ArrayList<HashMap<String, Object>> soils = MapUtil.getRawPackageContents(source, "soils");
+//        int count = 1;
+//        while (soilIds.contains(newSoilId + "_" + count)) {
+//            count++;
+//        }
+//        newSoilId += "_" + count;
+//        newData.put("soil_id", newSoilId);
+//        entry.put("soil_id", newSoilId);
+//        entry.put("soil", newData);
+//        soilIds.add(newSoilId);
+//        soils.add(newData);
+//    }
+//
+//    private void replicateWth(HashMap entry, HashSet wthIds) {
+//        String newWthId = MapUtil.getValueOr(entry, "wst_id", "");
+//        String climId = MapUtil.getValueOr(entry, "clim_id", "");
+//        HashMap data = MapUtil.getObjectOr(entry, "weather", new HashMap());
+//        if (data.isEmpty()) {
+//            return;
+//        }
+//        Cloner cloner = new Cloner();
+//        HashMap newData = cloner.deepClone(data);
+//        ArrayList<HashMap<String, Object>> wths = MapUtil.getRawPackageContents(source, "weathers");
+//        String inst;
+//        if (newWthId.length() > 1) {
+//            inst = newWthId.substring(0, 2);
+//        } else {
+//            inst = newWthId + "0";
+//        }
+//        newWthId = inst + "01" + climId;
+//        int count = 1;
+//        while (wthIds.contains(newWthId) && count < 99) {
+//            count++;
+//            newWthId = String.format("%s%02d%s", inst, count, climId);
+//        }
+//        if (count == 99 && wthIds.contains(newWthId)) {
+//            inst = inst.substring(0, 1);
+//            newWthId = inst + "100" + climId;
+//            while (wthIds.contains(newWthId)) {
+//                count++;
+//                newWthId = String.format("%s%03d%s", inst, count, climId);
+//            }
+//        }
+//        newData.put("wst_id", newWthId);
+//        entry.put("wst_id", newWthId);
+//        entry.put("weather", newData);
+//        wthIds.add(newWthId);
+//        wths.add(newData);
+//    }
+//
+//    private HashSet<String> getSWIdsSet(String dataKey, String... idKeys) {
+//        HashSet<String> ret = new HashSet();
+//        ArrayList<HashMap<String, Object>> arr = MapUtil.getRawPackageContents(source, dataKey);
+//        for (HashMap data : arr) {
+//            StringBuilder sb = new StringBuilder();
+//            for (String idKey : idKeys) {
+//                sb.append(MapUtil.getValueOr(data, idKey, ""));
+//            }
+//            ret.add(sb.toString());
+//        }
+//        return ret;
+//    }
 }
