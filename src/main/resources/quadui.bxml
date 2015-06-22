@@ -110,7 +110,7 @@
                             </BoxPane>
                             <BoxPane bxml:id="linkBP" orientation="vertical">
                                 <BoxPane orientation="horizontal">
-                                    <Label bxml:id="linkLabel" text="DOME Link File:" styles="{font:{bold:true}}" enabled="false"/>
+                                    <Label bxml:id="linkLabel" text="Link DOME File:" styles="{font:{bold:true}}" enabled="false"/>
                                     <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="This DOME file provides linkage between source data and DOMEs" />
                                 </BoxPane>
                                 <BoxPane orientation="horizontal">
@@ -120,6 +120,20 @@
                                 <BoxPane orientation="horizontal">
                                     <Checkbox bxml:id="option-linkage" buttonData="Provide linkage file for DOME" selected="true"/>
                                     <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="Use extra file to provide linkage information between experiments and DOMEs" />
+                                </BoxPane>
+                            </BoxPane>
+                            <BoxPane bxml:id="batchBP" orientation="vertical">
+                                <BoxPane orientation="horizontal">
+                                    <Label bxml:id="batchLabel" text="Batch DOME File:" styles="{font:{bold:true}}" enabled="false"/>
+                                    <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="This DOME file provides multiple batch run configurations to run translation in different conditions." />
+                                </BoxPane>
+                                <BoxPane orientation="horizontal">
+                                    <TextInput bxml:id="batchText" editable="false" enabled="false"/>
+                                    <PushButton bxml:id="browseBatchButton" buttonData="Browse" enabled="false"/>
+                                </BoxPane>
+                                <BoxPane orientation="horizontal">
+                                    <Checkbox bxml:id="option-batch" buttonData="Provide batch file for multiple translations"/>
+                                    <ImageView image="/info_s.jpg" tooltipDelay="200" tooltipText="Use extra file to provide batch DOME file." />
                                 </BoxPane>
                             </BoxPane>
                         </Border>
