@@ -18,11 +18,11 @@ import org.apache.pivot.util.concurrent.TaskExecutionException;
 
 public class DumpToAceb extends Task<HashMap<String, String>> {
 
-    private HashMap data;
-    private String fileName, directoryName, linkFileName;
-    private boolean isDome;
-    private boolean isSkipped;
-    private boolean isSkippedForLink;
+    private final HashMap data;
+    private final String fileName, directoryName, linkFileName;
+    private final boolean isDome;
+    private final boolean isSkipped;
+    private final boolean isSkippedForLink;
     private static final HashFunction hf = Hashing.sha256();
     private HashMap domeIdHashMap = new HashMap();
     private HashMap domeHashData = null;
@@ -123,19 +123,31 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
         }
 
         String climId = "";
+        boolean found = false;
         ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
         for (HashMap exp : exps) {
-            climId = MapUtil.getValueOr(exp, "clim_id", "");
-            if (!climId.equals("")) {
-                break;
+            String tmp = MapUtil.getValueOr(exp, "clim_id", "");
+            if (!tmp.equals("")) {
+                if (found && tmp.equals(climId)) {
+                    climId = "";
+                    break;
+                } else {
+                    climId = tmp;
+                    found = true;
+                }
+                
             }
         }
-        if (climId.equals("")) {
+        if (!found && climId.equals("")) {
             ArrayList<HashMap> wths = MapUtil.getObjectOr(data, "weathers", new ArrayList());
             for (HashMap wth : wths) {
-                climId = MapUtil.getValueOr(wth, "clim_id", "");
-                if (!climId.equals("")) {
+                String tmp = MapUtil.getValueOr(wth, "clim_id", "");
+                if (found && tmp.equals(climId)) {
+                    climId = "";
                     break;
+                } else {
+                    climId = tmp;
+                    found = true;
                 }
             }
         }
