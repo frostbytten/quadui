@@ -18,7 +18,6 @@ import org.agmip.ace.AceWeather;
 import org.agmip.ace.io.AceParser;
 import org.agmip.common.Functions;
 import org.agmip.dome.BatchEngine;
-import org.agmip.translators.csv.BatchInput;
 import org.agmip.util.JSONAdapter;
 import static org.agmip.util.JSONAdapter.*;
 import org.agmip.util.MapUtil;
@@ -308,7 +307,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     } else {
                         startTranslation();
                     }
-                    
+
                 } catch (Exception ex) {
                     LOG.error(getStackTrace(ex));
                     if (ex.getClass().getSimpleName().equals("ZipException")) {
@@ -502,7 +501,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     public boolean include(File file) {
                         return (file.isFile()
                                 && (!file.getName().toLowerCase().endsWith(".csv"))
-//                                && (!file.getName().toLowerCase().endsWith(".zip"))
+                                //                                && (!file.getName().toLowerCase().endsWith(".zip"))
                                 && (!file.getName().toLowerCase().endsWith(".alnk")));
                     }
                 });
@@ -611,10 +610,12 @@ public class QuadUIWindow extends Window implements Bindable {
 
         runType.getButtonGroupListeners().add(new ButtonGroupListener() {
             @Override
-            public void buttonAdded(ButtonGroup group, Button prev) {}
+            public void buttonAdded(ButtonGroup group, Button prev) {
+            }
 
             @Override
-            public void buttonRemoved(ButtonGroup group, Button prev) {}
+            public void buttonRemoved(ButtonGroup group, Button prev) {
+            }
 
             @Override
             public void selectionChanged(ButtonGroup group, Button prev) {
@@ -733,16 +734,17 @@ public class QuadUIWindow extends Window implements Bindable {
     private void prepareBatchRun() {
         enableConvertIndicator(true);
         LOG.info("Loading batch file...");
-        this.batch = loadBatchFile(batchText.getText());
+        this.batch = QuadUtil.loadBatchFile(batchText.getText());
         this.batEngine = new BatchEngine(this.batch);
+//        QuadUtil.cleanBatchDir(outputText.getText(), optionOverwrite.isSelected());
         if (batEngine.hasNext()) {
             startTranslation();
         }
     }
-    
+
     private void startTranslation() {
         enableConvertIndicator(true);
-        outputDir = getOutputDir2();
+        outputDir = QuadUtil.getOutputDir(outputText.getText(), optionOverwrite.isSelected(), batEngine);
         txtStatus.setText(getCurBatchInfo(false) + "Importing data...");
         LOG.info(getCurBatchInfo(false) + "Importing data...");
         TranslateFromTask task;
@@ -777,13 +779,13 @@ public class QuadUIWindow extends Window implements Bindable {
                             isDomeApplied = false;
                         } else {
                             if (isExpActived) {
-                                isDomeApplied = isDomeApplied(convertExpText.getText().toLowerCase(), data);
+                                isDomeApplied = QuadUtil.isDomeApplied(convertExpText.getText().toLowerCase(), data);
                             } else {
                                 if (isWthActived) {
-                                    isDomeApplied = isDomeApplied(convertWthText.getText().toLowerCase(), data);
+                                    isDomeApplied = QuadUtil.isDomeApplied(convertWthText.getText().toLowerCase(), data);
                                 }
                                 if (isDomeApplied && isSoilActived) {
-                                    isDomeApplied = isDomeApplied(convertSoilText.getText().toLowerCase(), data);
+                                    isDomeApplied = QuadUtil.isDomeApplied(convertSoilText.getText().toLowerCase(), data);
                                 }
                             }
                         }
@@ -803,9 +805,7 @@ public class QuadUIWindow extends Window implements Bindable {
                                 applyDome(data, mode);
                             }
                         }
-                        
 
-                        
                     } else {
                         Alert.alert(MessageType.ERROR, (String) data.get("errors"), QuadUIWindow.this);
                         enableConvertIndicator(false);
@@ -830,16 +830,15 @@ public class QuadUIWindow extends Window implements Bindable {
             } else {
                 Alert.alert(MessageType.ERROR, ex.toString(), QuadUIWindow.this);
             }
-//                    }
             enableConvertIndicator(false);
         }
     }
-    
+
     private void applyBatch(HashMap data) {
-        
+
         // Apply batch DOME
         LOG.info(getCurBatchInfo(false) + "Applying batch [" + batEngine.getBatchName() + "]...");
-        
+
         ApplyBatchTask task = new ApplyBatchTask(data, batEngine);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
 
@@ -864,41 +863,6 @@ public class QuadUIWindow extends Window implements Bindable {
         };
         task.execute(new TaskAdapter<HashMap>(listener));
     }
-    
-    private boolean isDomeApplied(String filePath, HashMap data) {
-        boolean isDomeApplied = false;
-        if (filePath.endsWith(".json")) {
-            // Check if the data has been applied with DOME.
-            ArrayList<HashMap> exps = MapUtil.getObjectOr(data, "experiments", new ArrayList());
-            for (HashMap exp : exps) {
-                if (MapUtil.getValueOr(exp, "dome_applied", "").equals("Y")) {
-                    isDomeApplied = true;
-                    break;
-                }
-            }
-            if (exps.isEmpty()) {
-                ArrayList<HashMap> soils = MapUtil.getObjectOr(data, "soils", new ArrayList());
-                ArrayList<HashMap> weathers = MapUtil.getObjectOr(data, "weathers", new ArrayList());
-                for (HashMap soil : soils) {
-                    if (MapUtil.getValueOr(soil, "dome_applied", "").equals("Y")) {
-                        isDomeApplied = true;
-                        break;
-                    }
-                }
-                if (!isDomeApplied) {
-                    for (HashMap wth : weathers) {
-                        if (MapUtil.getValueOr(wth, "dome_applied", "").equals("Y")) {
-                            isDomeApplied = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        
-        return isDomeApplied;
-    }
-        
 
     protected void dumpToAceb(HashMap map) {
         dumpToAceb(map, false);
@@ -906,7 +870,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
     protected void dumpToAceb(HashMap map, final boolean isDome) {
         if (!isDome) {
-            generateId(map);
+            QuadUtil.generateId(map);
         }
         String filePath;
         if (!isDome) {
@@ -962,7 +926,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 if (acebOnly) {
                     toOutput(result, t.getResult());
                 } else if (isDome) {
-                    reviseData(result);
+                    QuadUtil.reviseData(result);
                     toOutput(result, t.getResult());
                 }
             }
@@ -982,85 +946,12 @@ public class QuadUIWindow extends Window implements Bindable {
                 if (acebOnly) {
                     toOutput(result, null);
                 } else if (isDome) {
-                    reviseData(result);
+                    QuadUtil.reviseData(result);
                     toOutput(result, null);
                 }
             }
         };
         task.execute(new TaskAdapter<HashMap<String, String>>(listener));
-    }
-
-    private void reviseData(HashMap data) {
-        ArrayList<HashMap> wthArr = MapUtil.getObjectOr(data, "weathers", new ArrayList<HashMap>());
-        HashMap<String, String> wstIdClimIdMap = new HashMap();
-        for (HashMap wthData : wthArr) {
-            wstIdClimIdMap.put(MapUtil.getValueOr(wthData, "wst_id", ""), MapUtil.getValueOr(wthData, "clim_id", ""));
-        }
-        ArrayList<HashMap> expArr = MapUtil.getObjectOr(data, "experiments", new ArrayList<HashMap>());
-        for (HashMap expData : expArr) {
-            ArrayList<HashMap<String, String>> events = MapUtil.getBucket(expData, "management").getDataList();
-            boolean isFeExist = false;
-            boolean isIrExist = false;
-            for (HashMap<String, String> event : events) {
-                String eventType = MapUtil.getValueOr(event, "event", "");
-                if (isFeExist || eventType.equals("fertilizer")) {
-                    isFeExist = true;
-                } else if (isIrExist || eventType.equals("irrigation")) {
-                    isIrExist = true;
-                }
-                if (isFeExist && isIrExist) {
-                    break;
-                }
-            }
-            if (isFeExist) {
-                expData.put("FERTILIZER", "Y");
-            }
-            if (isIrExist) {
-                expData.put("IRRIG", "Y");
-            }
-            String wst_id = MapUtil.getValueOr(expData, "wst_id", "");
-            String clim_id = wstIdClimIdMap.get(wst_id);
-            if (clim_id != null && !"".equals(clim_id)) {
-                expData.put("clim_id", clim_id);
-            }
-        }
-    }
-
-    private void generateId(HashMap data) {
-        try {
-            String json = toJSON(data);
-            data.clear();
-            AceDataset ace = AceParser.parse(json);
-            ace.linkDataset();
-            ArrayList<HashMap> arr;
-            // Experiments
-            arr = new ArrayList();
-            for (AceExperiment exp : ace.getExperiments()) {
-                HashMap expData = JSONAdapter.fromJSON(new String(exp.rebuildComponent()));
-                arr.add(expData);
-            }
-            if (!arr.isEmpty()) {
-                data.put("experiments", arr);
-            }
-            // Soils
-            arr = new ArrayList();
-            for (AceSoil soil : ace.getSoils()) {
-                arr.add(JSONAdapter.fromJSON(new String(soil.rebuildComponent())));
-            }
-            if (!arr.isEmpty()) {
-                data.put("soils", arr);
-            }
-            // Weathers
-            arr = new ArrayList();
-            for (AceWeather wth : ace.getWeathers()) {
-                arr.add(JSONAdapter.fromJSON(new String(wth.rebuildComponent())));
-            }
-            if (!arr.isEmpty()) {
-                data.put("weathers", arr);
-            }
-        } catch (IOException e) {
-            LOG.warn(getCurBatchInfo(true) + Functions.getStackTrace(e));
-        }
     }
 
     private void applyDome(HashMap map, String mode) {
@@ -1147,7 +1038,7 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         }
         txtStatus.setText(getCurBatchInfo(true) + "Generating model input files...");
-        domeIdHashMap = saveDomeHashedIds(map, domeIdHashMap);
+        domeIdHashMap = QuadUtil.saveDomeHashedIds(map, domeIdHashMap);
         ArrayList<String> models = new ArrayList<String>();
         if (modelJson.isSelected()) {
             models.add("JSON");
@@ -1196,7 +1087,7 @@ public class QuadUIWindow extends Window implements Bindable {
                     }
                     enableConvertIndicator(false);
                 }
-                    
+
                 @Override
                 public void executeFailed(Task<String> arg0) {
                     LOG.info(getCurBatchInfo(true) + "Dump to JSON failed");
@@ -1231,80 +1122,8 @@ public class QuadUIWindow extends Window implements Bindable {
         }
     }
 
-    private HashMap<String, String> saveDomeHashedIds(HashMap map, HashMap<String, String> domeIdHashMap) {
-        HashMap<String, String> ret = domeIdHashMap;
-        if (domeIdHashMap == null) {
-            ret = new HashMap();
-            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "experiments", new ArrayList())));
-            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "soils", new ArrayList())));
-            ret.putAll(loadDomeHashedIds(MapUtil.getObjectOr(map, "weathers", new ArrayList())));
-            if (ret.isEmpty()) {
-                ret = null;
-            }
-        } else {
-            saveDomeHashedIds(MapUtil.getObjectOr(map, "experiments", new ArrayList()), domeIdHashMap);
-            saveDomeHashedIds(MapUtil.getObjectOr(map, "soils", new ArrayList()), domeIdHashMap);
-            saveDomeHashedIds(MapUtil.getObjectOr(map, "weathers", new ArrayList()), domeIdHashMap);
-        }
-
-        return ret;
-    }
-
-    private void saveDomeHashedIds(ArrayList<HashMap> arr, HashMap<String, String> domeIdHashMap) {
-
-        for (HashMap data : arr) {
-            if (MapUtil.getValueOr(data, "dome_applied", "").equals("Y")) {
-                if (MapUtil.getValueOr(data, "seasonal_dome_applied", "").equals("Y")) {
-                    String fieldName = MapUtil.getValueOr(data, "seasonal_strategy", "").toUpperCase();
-                    String dsid = domeIdHashMap.get(fieldName);
-                    if (dsid != null) {
-                        data.put("dsid", dsid);
-                    }
-                }
-                if (MapUtil.getValueOr(data, "rotational_dome_applied", "").equals("Y")) {
-                    String fieldName = MapUtil.getValueOr(data, "rotational_strategy", "").toUpperCase();
-                    String drid = domeIdHashMap.get(fieldName);
-                    if (drid != null) {
-                        data.put("drid", drid);
-                    }
-                }
-                if (MapUtil.getValueOr(data, "field_dome_applied", "").equals("Y")) {
-                    String fieldName = MapUtil.getValueOr(data, "field_overlay", "").toUpperCase();
-                    String doid = domeIdHashMap.get(fieldName);
-                    if (doid != null) {
-                        data.put("doid", doid);
-                    }
-                }
-            }
-        }
-    }
-
-    private HashMap<String, String> loadDomeHashedIds(ArrayList<HashMap> arr) {
-
-        HashMap<String, String> domeIdHashMap = new HashMap();
-        for (HashMap data : arr) {
-            String seasonalName = MapUtil.getValueOr(data, "seasonal_strategy", "").toUpperCase();
-            String dsid = MapUtil.getValueOr(data, "dsid", "");
-            if (!dsid.equals("") && !domeIdHashMap.containsKey(seasonalName)) {
-                domeIdHashMap.put(seasonalName, dsid);
-            }
-            String rotationalName = MapUtil.getValueOr(data, "rotational_strategy", "").toUpperCase();
-            String drid = MapUtil.getValueOr(data, "drid", "");
-            if (!drid.equals("") && !domeIdHashMap.containsKey(rotationalName)) {
-                domeIdHashMap.put(rotationalName, drid);
-            }
-            String fieldName = MapUtil.getValueOr(data, "field_overlay", "").toUpperCase();
-            String doid = MapUtil.getValueOr(data, "doid", "");
-            if (!doid.equals("") && !domeIdHashMap.containsKey(fieldName)) {
-                domeIdHashMap.put(fieldName, doid);
-            }
-        }
-        
-        return domeIdHashMap;
-    }
-
     private void toOutput2(ArrayList<String> models, HashMap map, HashMap<String, String> domeIdHashMap) {
-        TranslateToTask task  = new TranslateToTask(models, map, outputDir, optionCompress.isSelected(), domeIdHashMap, modelSpecFiles);
+        TranslateToTask task = new TranslateToTask(models, map, outputDir, optionCompress.isSelected(), domeIdHashMap, modelSpecFiles);
         TaskListener<String> listener = new TaskListener<String>() {
             @Override
             public void executeFailed(Task<String> arg0) {
@@ -1324,51 +1143,6 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         };
         task.execute(new TaskAdapter<String>(listener));
-    }
-    
-    private String getOutputDir2() {
-        String path;
-        if (batEngine == null) {
-            path = outputText.getText();
-        } else {
-            path = outputText.getText() + File.separator + "batch-" + batEngine.getCurGroupId();
-            File dir = new File(path);
-            int count = 0;
-            while (dir.exists() && dir.listFiles().length > 0) {
-                if (cleanBatchDir(path)) {
-                    break;
-                }
-                count++;
-                dir = new File(path + "_" + count);
-            }
-            if (count > 0) {
-                path += "_" + count;
-            }
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-        }
-        
-        return path;
-    }
-    
-    private boolean cleanBatchDir(String path) {
-        if (optionOverwrite.isSelected()) {
-            if (Functions.clearDirectory(new File(path))) {
-                return true;
-            } else {
-               File dir = new File(path);
-               for (File f :dir.listFiles()) {
-                   if (f.isDirectory() && f.listFiles().length != 0) {
-                       return false;
-                   }
-               }
-               return true;
-            }
-        } else {
-            return false;
-        }
-        
     }
 
     private static String getStackTrace(Throwable aThrowable) {
@@ -1524,37 +1298,7 @@ public class QuadUIWindow extends Window implements Bindable {
         });
     }
 
-    private HashMap<String, Object> loadBatchFile(String fileName) {
-        String fileNameTest = fileName.toUpperCase();
-        LOG.debug("Loading Batch file: {}", fileName);
-        HashMap batDome = null;
-
-        try {
-            if (fileNameTest.endsWith(".CSV")) {
-                LOG.debug("Entering Batch CSV file handling");
-                BatchInput reader = new BatchInput();
-                batDome = (HashMap<String, Object>) reader.readFile(fileName);
-            } else if (fileNameTest.endsWith(".DOME")) {
-                // TODO
-            }
-
-            return batDome;
-        } catch (Exception ex) {
-            LOG.error("Error processing DOME file: {}", ex.getMessage());
-            return new HashMap();
-        }
-    }
-    
     private String getCurBatchInfo(boolean isBatchApplied) {
-        if (batEngine == null) {
-            return "";
-        } else {
-            if (isBatchApplied) {
-                return "[Batch-" + batEngine.getLastGroupId()+ "] ";
-            } else {
-                return "[Batch-" + batEngine.getCurGroupId() + "] ";
-            }
-            
-        }
+        return QuadUtil.getCurBatchInfo(batEngine, isBatchApplied);
     }
 }
