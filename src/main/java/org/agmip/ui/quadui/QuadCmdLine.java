@@ -528,9 +528,11 @@ public class QuadCmdLine {
                 HashMap data = t.getResult();
                 if (!data.containsKey("errors")) {
                     //LOG.error("Domeoutput: {}", data.get("domeoutput"));
-                    HashMap tmp = new HashMap();
-                    tmp.put(batEngine.getDomeName(), batchDome);
-                    data.put("batDomes", tmp);
+                    if (batEngine != null) {
+                        HashMap tmp = new HashMap();
+                        tmp.put(batEngine.getDomeName(), batchDome);
+                        data.put("batDomes", tmp);
+                    }
                     dumpToAceb(data, true);
                 } else {
                     LOG.error((String) data.get("errors"));
