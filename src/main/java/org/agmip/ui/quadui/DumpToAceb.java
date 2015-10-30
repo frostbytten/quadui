@@ -7,7 +7,10 @@ import com.rits.cloning.Cloner;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import org.agmip.ace.io.AceGenerator;
 import org.agmip.dome.DomeUtil;
 import org.agmip.translators.csv.AlnkOutput;
@@ -98,7 +101,8 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
     }
     
     private HashCode generateHCId(HashMap data) throws IOException {
-        return hf.newHasher().putBytes(toJSON(data).getBytes("UTF-8")).hash();
+        LinkedHashMap sortedData = sortMap(data);
+        return hf.newHasher().putBytes(toJSON(sortedData).getBytes("UTF-8")).hash();
     }
     
     private String getDomeName(String base, String baseL) {
@@ -163,5 +167,20 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
         File file = new File(f);
         String[] base = file.getName().split("\\.(?=[^\\.]+$)");
         return base[0];
+    }
+    
+    private LinkedHashMap sortMap(HashMap<String, Object> data) {
+        List<String> sortedKeys = new ArrayList(data.keySet());
+        Collections.sort(sortedKeys);
+        LinkedHashMap sortedData = new LinkedHashMap();
+        for (String key : sortedKeys) {
+            Object value = data.get(key);
+            if (value instanceof HashMap) {
+                sortedData.put(key, sortMap((HashMap) value));
+            } else {
+                sortedData.put(key, value);
+            }
+        }
+        return sortedData;
     }
 }
