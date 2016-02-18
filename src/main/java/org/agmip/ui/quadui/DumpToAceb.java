@@ -18,6 +18,8 @@ import static org.agmip.util.JSONAdapter.toJSON;
 import org.agmip.util.MapUtil;
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DumpToAceb extends Task<HashMap<String, String>> {
 
@@ -29,6 +31,7 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
     private static final HashFunction hf = Hashing.sha256();
     private HashMap domeIdHashMap = new HashMap();
     private HashMap domeHashData = null;
+    private static final Logger LOG = LoggerFactory.getLogger(DumpToAceb.class);
 
     public DumpToAceb(String file, String fileL, String dirName, HashMap data, boolean isDome, boolean isSkipped, boolean isSkippedForLink) {
         this.fileName = file;
@@ -102,7 +105,9 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
     
     private HashCode generateHCId(HashMap data) throws IOException {
         LinkedHashMap sortedData = sortMap(data);
-        return hf.newHasher().putBytes(toJSON(sortedData).getBytes("UTF-8")).hash();
+        String jsonStr = toJSON(sortedData);
+        LOG.info("DOME {} : {}", DomeUtil.generateDomeName(data), jsonStr);
+        return hf.newHasher().putBytes(jsonStr.getBytes("UTF-8")).hash();
     }
     
     private String getDomeName(String base, String baseL) {

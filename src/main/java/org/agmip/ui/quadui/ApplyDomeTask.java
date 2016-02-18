@@ -35,17 +35,19 @@ public class ApplyDomeTask extends Task<HashMap> {
     private final HashMap<String, String> stgNewDomeIdMap = new HashMap<String, String>();
 //    private HashMap<String, ArrayList<String>> wthLinks = new HashMap<String, ArrayList<String>>();
 //    private HashMap<String, ArrayList<String>> soilLinks = new HashMap<String, ArrayList<String>>();
+    private final ArrayList<String> skipVarList;
     private HashMap source;
     private String mode;
     private boolean autoApply;
     private boolean acebOnly;
     private int thrPoolSize;
 
-    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, boolean autoApply, boolean acebOnly) {
+    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, ArrayList<String> skipVarList, boolean autoApply, boolean acebOnly) {
         this.source = m;
         this.mode = mode;
         this.autoApply = autoApply;
         this.acebOnly = acebOnly;
+        this.skipVarList = skipVarList;
         // Setup the domes here.
         loadDomeLinkFile(linkFile);
         log.debug("link csv: {}", ovlLinks);
@@ -57,8 +59,8 @@ public class ApplyDomeTask extends Task<HashMap> {
         thrPoolSize = Runtime.getRuntime().availableProcessors();
     }
 
-    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, boolean autoApply, boolean acebOnly, int thrPoolSize) {
-        this(linkFile, fieldFile, strategyFile, mode, m, autoApply, acebOnly);
+    public ApplyDomeTask(String linkFile, String fieldFile, String strategyFile, String mode, HashMap m, ArrayList<String> skipVarList, boolean autoApply, boolean acebOnly, int thrPoolSize) {
+        this(linkFile, fieldFile, strategyFile, mode, m, skipVarList, autoApply, acebOnly);
         this.thrPoolSize = thrPoolSize;
     }
 
@@ -442,7 +444,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                         log.debug("Found strategyName");
                         entry.put("dome_applied", "Y");
                         entry.put("seasonal_dome_applied", "Y");
-                        generatorEngine = new Engine(stgDomes.get(strategyName), true);
+                        generatorEngine = new Engine(stgDomes.get(strategyName), true, skipVarList);
                         if (!noExpMode) {
                             // Check if there is no weather or soil data matched with experiment
                             if (((HashMap) MapUtil.getObjectOr(entry, "weather", new HashMap())).isEmpty()) {
@@ -555,7 +557,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                     log.debug("Apply DOME {} for {}", tmpDomeId, MapUtil.getValueOr(entry, "exname", MapUtil.getValueOr(entry, "soil_id", MapUtil.getValueOr(entry, "wst_id", "<Unknow>"))));
                     log.debug("Looking for dome_name: {}", tmpDomeId);
                     if (ovlDomes.containsKey(tmpDomeId)) {
-                        domeEngine = new Engine(ovlDomes.get(tmpDomeId));
+                        domeEngine = new Engine(ovlDomes.get(tmpDomeId), skipVarList);
                         if (!acebOnly) {
                             entry.put("dome_applied", "Y");
                             entry.put("field_dome_applied", "Y");
@@ -567,7 +569,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                             } else {
                                 sDomeIds += "|" + tmpDomeId;
                             }
-                            sEngines.add(new Engine(sRules, tmpDomeId));
+                            sEngines.add(new Engine(sRules, tmpDomeId, skipVarList));
                             sRulesTotal.addAll(sRules);
                         }
                         ArrayList<HashMap<String, String>> wRules = domeEngine.extractWthRules();
@@ -577,7 +579,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                             } else {
                                 wDomeIds += "|" + tmpDomeId;
                             }
-                            wEngines.add(new Engine(wRules, tmpDomeId));
+                            wEngines.add(new Engine(wRules, tmpDomeId, skipVarList));
                             wRulesTotal.addAll(wRules);
                         }
                         engines.add(domeEngine);
@@ -745,7 +747,7 @@ public class ApplyDomeTask extends Task<HashMap> {
                     log.debug("Looking for dome_name: {}", tmpDomeId);
                     if (domes.containsKey(tmpDomeId)) {
                         log.debug("Found DOME {}", tmpDomeId);
-                        Engine domeEngine = new Engine(domes.get(tmpDomeId));
+                        Engine domeEngine = new Engine(domes.get(tmpDomeId), skipVarList);
                         isClimIDchanged = domeEngine.updateWSRef(exp, isStgDome, mode.equals("strategy"));
                         // Check if the wst_id is switch to 8-bit long version
                         String wst_id = MapUtil.getValueOr(exp, "wst_id", "");

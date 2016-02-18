@@ -12,6 +12,7 @@ import java.util.zip.ZipFile;
 import org.agmip.common.Functions;
 import static org.agmip.common.Functions.getStackTrace;
 import org.agmip.dome.BatchEngine;
+import org.agmip.translators.dssat.DssatControllerInput;
 import org.apache.pivot.util.concurrent.Task;
 import org.apache.pivot.util.concurrent.TaskListener;
 import org.apache.pivot.wtk.TaskAdapter;
@@ -31,7 +32,7 @@ public class QuadCmdLine {
 
     public enum Model {
 
-        DSSAT, APSIM, STICS, WOFOST, CropGrowNAU, JSON
+        DSSAT, APSIM, SarraHV33, STICS, WOFOST, CropGrowNAU, JSON
     }
     private static final Logger LOG = LoggerFactory.getLogger(QuadCmdLine.class);
     private DomeMode mode = DomeMode.NONE;
@@ -135,6 +136,8 @@ public class QuadCmdLine {
                 addModel(Model.DSSAT.toString());
             } else if (args[i].equalsIgnoreCase("-apsim")) {
                 addModel(Model.APSIM.toString());
+            } else if (args[i].equalsIgnoreCase("-sarrahv33")) {
+                addModel(Model.SarraHV33.toString());
             } else if (args[i].equalsIgnoreCase("-stics")) {
                 addModel(Model.STICS.toString());
             } else if (args[i].equalsIgnoreCase("-wofost")) {
@@ -171,6 +174,9 @@ public class QuadCmdLine {
                 if (args[i].contains("A")) {
                     addModel(Model.APSIM.toString());
                 }
+                if (args[i].contains("H")) {
+                    addModel(Model.SarraHV33.toString());
+                }
                 if (args[i].contains("S")) {
                     addModel(Model.STICS.toString());
                 }
@@ -195,6 +201,7 @@ public class QuadCmdLine {
             }
             if (pathNum >= 2) {
                 linkPath = args[i++].trim();
+                linkPath = "";
             }
             if (!isBatch) {
                 if (pathNum >= 3) {
@@ -226,8 +233,13 @@ public class QuadCmdLine {
             if (i < args.length) {
                 outputPath = args[i];
             } else {
+                isFromCRAFT = new File(convertPath).isDirectory();
                 try {
-                    outputPath = new File(convertPath).getCanonicalFile().getParent();
+                    if (!isFromCRAFT) {
+                        outputPath = new File(convertPath).getCanonicalFile().getParent();
+                    } else {
+                        outputPath = convertPath;
+                    }
                 } catch (IOException ex) {
                     outputPath = null;
                     LOG.error(getStackTrace(ex));
@@ -284,7 +296,6 @@ public class QuadCmdLine {
             return false;
         }
 
-        isFromCRAFT = new File(convertPath).isDirectory();
         if (outputPath != null) {
             File dir = new File(outputPath);
             if (!dir.exists()) {
@@ -321,85 +332,70 @@ public class QuadCmdLine {
     private void startTranslation() {
         outputDir = QuadUtil.getOutputDir(outputPath, isOverwrite, batEngine);
         LOG.info(QuadUtil.getCurBatchInfo(batEngine, false) + "Importing data...");
-        TranslateFromTask task;
-        ArrayList<String> inputFiles = new ArrayList();
-        inputFiles.add(convertPath);
-//        if (isExpActived) {
-//            inputFiles.add(convertExpText.getText());
-//        }
-//        if (isWthActived) {
-//            inputFiles.add(convertWthText.getText());
-//        }
-//        if (isCulActived) {
-//            inputFiles.add(convertCulText.getText());
-//        }
-//        if (isSoilActived) {
-//            inputFiles.add(convertSoilText.getText());
-//        }
-        try {
-            task = new TranslateFromTask(inputFiles.toArray(new String[0]));
-            TaskListener<HashMap> listener = new TaskListener<HashMap>() {
+        if (isFromCRAFT) {
+            DssatControllerInput in = new DssatControllerInput();
+            HashMap data = in.readFileFromCRAFT(convertPath);
 
-                @Override
-                public void taskExecuted(Task<HashMap> t) {
-                    HashMap data = t.getResult();
-                    if (!data.containsKey("errors")) {
-                        modelSpecFiles = (HashMap) data.remove("ModelSpec");
-
-                        // Dump input data into aceb format
-                        boolean isDomeApplied = QuadUtil.isDomeApplied(convertPath.toLowerCase(), data);
-//                        if (isExpActived && (isWthActived || isSoilActived)) {
-//                            isDomeApplied = false;
-//                        } else if (isWthActived && isSoilActived) {
-//                            isDomeApplied = false;
-//                        } else {
-//                            if (isExpActived) {
-//                                isDomeApplied = isDomeApplied(convertExpText.getText().toLowerCase(), data);
-//                            } else {
-//                                if (isWthActived) {
-//                                    isDomeApplied = isDomeApplied(convertWthText.getText().toLowerCase(), data);
-//                                }
-//                                if (isDomeApplied && isSoilActived) {
-//                                    isDomeApplied = isDomeApplied(convertSoilText.getText().toLowerCase(), data);
-//                                }
-//                            }
-//                        }
-
-                        if (!isDomeApplied) {
-                            dumpToAceb(data);
-                        }
-
-                        if (batEngine != null) {
-                            applyBatch(data);
-                        } else {
-                            if (mode.equals(DomeMode.NONE)) {
-                                if (!acebOnly) {
-                                    toOutput(data, null);
-                                }
-                            } else {
-                                applyDome(data, mode.toString().toLowerCase());
-                            }
-                        }
-
-                    } else {
-                        LOG.error((String) data.get("errors"));
-                        runNextBatch(null);
-                    }
-                }
-
-                @Override
-                public void executeFailed(Task<HashMap> arg0) {
-                    LOG.error(getStackTrace(arg0.getFault()));
-                    runNextBatch(arg0);
-                }
-            };
-            task.execute(new TaskAdapter<HashMap>(listener));
-        } catch (Exception ex) {
-            LOG.error(QuadUtil.getCurBatchInfo(batEngine, false) + getStackTrace(ex));
-            if (ex.getClass().getSimpleName().equals("ZipException")) {
-                LOG.error(QuadUtil.getCurBatchInfo(batEngine, false) + "Please make sure using the latest ADA (no earlier than 0.3.6) to create zip file");
+            if (mode.equals(DomeMode.NONE)) {
+                toOutput(data, null);
+            } else {
+                LOG.debug("Attempting to apply a new DOME");
+                applyDome(data, mode.toString().toLowerCase(), new ArrayList());
             }
-            runNextBatch(null);
+        } else {
+
+            TranslateFromTask task;
+            ArrayList<String> inputFiles = new ArrayList();
+            inputFiles.add(convertPath);
+            try {
+                task = new TranslateFromTask(inputFiles.toArray(new String[0]));
+                TaskListener<HashMap> listener = new TaskListener<HashMap>() {
+
+                    @Override
+                    public void taskExecuted(Task<HashMap> t) {
+                        HashMap data = t.getResult();
+                        if (!data.containsKey("errors")) {
+                            modelSpecFiles = (HashMap) data.remove("ModelSpec");
+
+                            // Dump input data into aceb format
+                            boolean isDomeApplied = QuadUtil.isDomeApplied(convertPath.toLowerCase(), data);
+
+                            if (!isDomeApplied) {
+                                dumpToAceb(data);
+                            }
+
+                            if (batEngine != null) {
+                                applyBatch(data);
+                            } else {
+                                if (mode.equals(DomeMode.NONE)) {
+                                    if (!acebOnly) {
+                                        toOutput(data, null);
+                                    }
+                                } else {
+                                    applyDome(data, mode.toString().toLowerCase(), new ArrayList());
+                                }
+                            }
+
+                        } else {
+                            LOG.error((String) data.get("errors"));
+                            runNextBatch(null);
+                        }
+                    }
+
+                    @Override
+                    public void executeFailed(Task<HashMap> arg0) {
+                        LOG.error(getStackTrace(arg0.getFault()));
+                        runNextBatch(arg0);
+                    }
+                };
+                task.execute(new TaskAdapter<HashMap>(listener));
+            } catch (Exception ex) {
+                LOG.error(QuadUtil.getCurBatchInfo(batEngine, false) + getStackTrace(ex));
+                if (ex.getClass().getSimpleName().equals("ZipException")) {
+                    LOG.error(QuadUtil.getCurBatchInfo(batEngine, false) + "Please make sure using the latest ADA (no earlier than 0.3.6) to create zip file");
+                }
+                runNextBatch(null);
+            }
         }
     }
 
@@ -419,7 +415,7 @@ public class QuadCmdLine {
                         toOutput(data, null);
                     }
                 } else {
-                    applyDome(data, mode.toString().toLowerCase());
+                    applyDome(data, mode.toString().toLowerCase(), batEngine.currentModifiedVarList());
                 }
             }
 
@@ -518,9 +514,9 @@ public class QuadCmdLine {
         task.execute(new TaskAdapter<HashMap<String, String>>(listener));
     }
 
-    private void applyDome(HashMap map, String mode) {
+    private void applyDome(HashMap map, String mode, ArrayList<String> skipVarList) {
         LOG.info("Applying DOME...");
-        ApplyDomeTask task = new ApplyDomeTask(linkPath, fieldPath, strategyPath, mode, map, isAutoDomeApply(), acebOnly, thrPoolSize);
+        ApplyDomeTask task = new ApplyDomeTask(linkPath, fieldPath, strategyPath, mode, map, skipVarList, isAutoDomeApply(), acebOnly, thrPoolSize);
         final HashMap batchDome = this.batch;
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
@@ -637,7 +633,7 @@ public class QuadCmdLine {
 
     private void runNextBatch(Task arg0) {
         if (batEngine != null && batEngine.hasNext()) {
-            LOG.info("=== Batch " + batEngine.getLastGroupId() + " finished ===");
+            LOG.info("=== Batch " + batEngine.getNextGroupId() + " finished ===");
             startTranslation();
         } else if (arg0 != null) {
             arg0.abort();
@@ -665,6 +661,7 @@ public class QuadCmdLine {
         System.out.println("\t<model_option>");
         System.out.println("\t\t-D | -dssat\tDSSAT");
         System.out.println("\t\t-A | -apsim\tAPSIM");
+        System.out.println("\t\t-H | -sarrahv33\tSarraHV33");
         System.out.println("\t\t-S | -stics\tSTICS");
         System.out.println("\t\t-W | -wofost\tWOFOST");
         System.out.println("\t\t-C | -cropgrownau\tCropGrow-NAU");
