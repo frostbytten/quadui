@@ -8,7 +8,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Level;
 import org.agmip.ace.AceDataset;
 import org.agmip.ace.io.AceParser;
 
@@ -38,6 +37,7 @@ public class TranslateToTask extends Task<String> {
     private final HashMap data;
     private final AceDataset aceData;
     private final ArrayList<String> translateList;
+    private boolean hasSarraH33 = false;
     private final ArrayList<String> weatherList, soilList;
     private final String destDirectory;
     private final boolean compress;
@@ -48,7 +48,7 @@ public class TranslateToTask extends Task<String> {
 
     public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress, HashMap<String, String> domeIdHashMap, HashMap<String, HashMap> modelSpecFiles) {
         this.data = data;
-        if (translateList.contains("AgMIP")) {
+        if (translateList.contains("AgMIP") || translateList.contains("SarraHV33")) {
             this.aceData = toAceDataset(data);
         } else {
             this.aceData = null;
@@ -61,7 +61,9 @@ public class TranslateToTask extends Task<String> {
         this.domeIdHashMap = domeIdHashMap;
         this.modelSpecFiles = modelSpecFiles;
         for (String trType : translateList) {
-            if (!trType.equals("JSON")) {
+            if (trType.equals("SarraHV33")) {
+                hasSarraH33 = true;
+            } else if (!trType.equals("JSON")) {
                 this.translateList.add(trType);
             }
         }
@@ -104,6 +106,12 @@ public class TranslateToTask extends Task<String> {
                     } else {
                         submitTask(executor, tr, data, destDir, false, compress);
                     }
+                }
+                if (hasSarraH33) {
+                    LOG.info("SarraHV33 Translator Started");
+                    File destDir = createModelDestDirectory(destDirectory, "SarraHV33");
+                    Runnable thread = new TranslateRunnerSarraH(aceData, destDir.toString(), "SarraHV33", compress);
+                    executor.execute(thread);
                 }
                 executor.shutdown();
                 while (!executor.isTerminated()) {

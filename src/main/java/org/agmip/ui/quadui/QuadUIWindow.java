@@ -66,6 +66,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox convertSoilCB = null;
     private Checkbox modelApsim = null;
     private Checkbox modelDssat = null;
+    private Checkbox modelSarrah33 = null;
     private Checkbox modelStics = null;
     private Checkbox modelWofost = null;
     private Checkbox modelCgnau = null;
@@ -249,6 +250,7 @@ public class QuadUIWindow extends Window implements Bindable {
         convertSoilCB        = (Checkbox) ns.get("convertSoilCB");
         modelApsim          = (Checkbox) ns.get("model-apsim");
         modelDssat          = (Checkbox) ns.get("model-dssat");
+        modelSarrah33       = (Checkbox) ns.get("model-sarrah33");
         modelStics          = (Checkbox) ns.get("model-stics");
         modelWofost         = (Checkbox) ns.get("model-wofost");
         modelCgnau          = (Checkbox) ns.get("model-cgnau");
@@ -261,6 +263,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
+        checkboxGroup.add(modelSarrah33);
         checkboxGroup.add(modelStics);
         checkboxGroup.add(modelWofost);
         checkboxGroup.add(modelCgnau);
@@ -705,6 +708,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 acebOnly = state.equals(State.SELECTED);
                 modelApsim.setEnabled(acebOnly);
                 modelDssat.setEnabled(acebOnly);
+                modelSarrah33.setEnabled(acebOnly);
                 modelStics.setEnabled(acebOnly);
                 modelWofost.setEnabled(acebOnly);
                 modelCgnau.setEnabled(acebOnly);
@@ -715,6 +719,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
         initCheckBox(modelApsim, "last_model_select_apsim");
         initCheckBox(modelDssat, "last_model_select_dssat");
+        initCheckBox(modelSarrah33, "last_model_select_sarrah33");
         initCheckBox(modelCgnau, "last_model_select_cgnau");
         initCheckBox(modelStics, "last_model_select_stics");
         initCheckBox(modelWofost, "last_model_select_wofost");
@@ -794,7 +799,7 @@ public class QuadUIWindow extends Window implements Bindable {
                                     toOutput(data, null);
                                 }
                             } else {
-                                applyDome(data, mode);
+                                applyDome(data, mode, new ArrayList());
                             }
                         }
 
@@ -842,7 +847,7 @@ public class QuadUIWindow extends Window implements Bindable {
                         toOutput(data, null);
                     }
                 } else {
-                    applyDome(data, mode);
+                    applyDome(data, mode, batEngine.currentModifiedVarList());
                 }
             }
 
@@ -946,10 +951,10 @@ public class QuadUIWindow extends Window implements Bindable {
         task.execute(new TaskAdapter<HashMap<String, String>>(listener));
     }
 
-    private void applyDome(HashMap map, String mode) {
+    private void applyDome(HashMap map, String mode, ArrayList<String> skipVarList) {
         txtStatus.setText(getCurBatchInfo(true) + "Applying DOME...");
         LOG.info(getCurBatchInfo(true) + "Applying DOME...");
-        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map, autoApply, acebOnly);
+        ApplyDomeTask task = new ApplyDomeTask(linkText.getText(), fieldText.getText(), strategyText.getText(), mode, map, skipVarList, autoApply, acebOnly);
         final HashMap batchDome = this.batch;
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
             @Override
@@ -1040,6 +1045,9 @@ public class QuadUIWindow extends Window implements Bindable {
         }
         if (modelDssat.isSelected()) {
             models.add("DSSAT");
+        }
+        if (modelSarrah33.isSelected()) {
+            models.add("SarraHV33");
         }
         if (modelStics.isSelected()) {
             models.add("STICS");
@@ -1173,7 +1181,7 @@ public class QuadUIWindow extends Window implements Bindable {
 
     private void enableConvertIndicator(boolean enabled) {
         if (!enabled && batEngine != null && batEngine.hasNext()) {
-            LOG.info("=== Batch " + batEngine.getLastGroupId() + " finished ===");
+            LOG.info("=== Batch " + batEngine.getNextGroupId() + " finished ===");
             startTranslation();
         } else {
             convertIndicator.setActive(enabled);
