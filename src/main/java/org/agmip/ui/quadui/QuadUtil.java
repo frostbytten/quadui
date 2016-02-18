@@ -1,9 +1,15 @@
 package org.agmip.ui.quadui;
 
+import com.google.common.io.Files;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import org.agmip.ace.AceDataset;
 import org.agmip.ace.AceExperiment;
 import org.agmip.ace.AceSoil;
@@ -53,7 +59,7 @@ public class QuadUtil {
 
     public static String getOutputDir(String path, boolean isOverwrite, BatchEngine batEngine) {
         if (batEngine != null) {
-            path += File.separator + "batch-" + batEngine.getCurGroupId();
+            path += File.separator + "batch-" + batEngine.getNextGroupId();
             File dir = new File(path);
             int count = 0;
             while (dir.exists() && dir.listFiles().length > 0) {
@@ -98,9 +104,9 @@ public class QuadUtil {
             return "";
         } else {
             if (isBatchApplied) {
-                return "[Batch-" + batEngine.getLastGroupId() + "] ";
-            } else {
                 return "[Batch-" + batEngine.getCurGroupId() + "] ";
+            } else {
+              return "[Batch-" + batEngine.getNextGroupId() + "] ";
             }
 
         }
@@ -295,5 +301,22 @@ public class QuadUtil {
         }
 
         return domeIdHashMap;
+    }
+
+    public static void compressOutput(String outputDirectory, String model) throws IOException {
+        File directory = new File(outputDirectory);
+        File zipFile   = new File(directory, model+"_Input.zip");
+        List<File> files   = Arrays.asList(directory.listFiles());
+        FileOutputStream fos = new FileOutputStream(zipFile);
+        ZipOutputStream  zos = new ZipOutputStream(fos);
+        for(File f : files) {
+            ZipEntry ze = new ZipEntry(f.getName());
+            zos.putNextEntry(ze);
+            zos.write(Files.toByteArray(f));
+            zos.closeEntry();
+            f.delete();
+        }
+        zos.close();
+        fos.close();
     }
 }
