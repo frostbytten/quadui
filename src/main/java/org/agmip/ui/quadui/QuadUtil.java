@@ -98,17 +98,26 @@ public class QuadUtil {
         }
 
     }
-
-    public static String getCurBatchInfo(BatchEngine batEngine, boolean isBatchApplied) {
+    
+    public static String getCurGroupId(BatchEngine batEngine, boolean isBatchApplied) {
         if (batEngine == null) {
             return "";
         } else {
             if (isBatchApplied) {
-                return "[Batch-" + batEngine.getCurGroupId() + "] ";
+                return batEngine.getCurGroupId();
             } else {
-              return "[Batch-" + batEngine.getNextGroupId() + "] ";
+              return batEngine.getNextGroupId();
             }
 
+        }
+    }
+
+    public static String getCurBatchInfo(BatchEngine batEngine, boolean isBatchApplied) {
+        String curGroupId = getCurGroupId(batEngine, isBatchApplied);
+        if (curGroupId.equals("")) {
+            return "";
+        } else {
+            return "[Batch-" + curGroupId + "] ";
         }
     }
 
