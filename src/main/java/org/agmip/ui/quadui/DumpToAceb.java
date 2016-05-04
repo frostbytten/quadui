@@ -182,10 +182,20 @@ public class DumpToAceb extends Task<HashMap<String, String>> {
             Object value = data.get(key);
             if (value instanceof HashMap) {
                 sortedData.put(key, sortMap((HashMap) value));
+            } else if (value instanceof ArrayList) {
+                sortMap((ArrayList) value);
             } else {
                 sortedData.put(key, value);
             }
         }
         return sortedData;
+    }
+    
+    private void sortMap(ArrayList arr) {
+        for (int i = 0; i < arr.size(); i++) {
+            if (arr.get(i) instanceof HashMap) {
+                arr.set(i, sortMap((HashMap) arr.get(i)));
+            }
+        }
     }
 }
