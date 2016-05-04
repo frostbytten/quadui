@@ -57,6 +57,7 @@ public class QuadCmdLine {
     HashMap<String, Object> batch;
     private BatchEngine batEngine;
     private String outputDir = "";
+    private boolean isBatchApplied;
 
     public QuadCmdLine() {
         try {
@@ -103,11 +104,11 @@ public class QuadCmdLine {
                 startTranslation();
             }
         } catch (Exception ex) {
-            LOG.error(QuadUtil.getCurBatchInfo(batEngine, false) + getStackTrace(ex));
+            LOG.error(QuadUtil.getCurBatchInfo(batEngine, isBatchApplied) + getStackTrace(ex));
             if (ex.getClass().getSimpleName().equals("ZipException")) {
-                LOG.error(QuadUtil.getCurBatchInfo(batEngine, false) + "Please make sure using the latest ADA (no earlier than 0.3.6) to create zip file");
+                LOG.error(QuadUtil.getCurBatchInfo(batEngine, isBatchApplied) + "Please make sure using the latest ADA (no earlier than 0.3.6) to create zip file");
             }
-            runNextBatch(null);
+            quitCurRun(null, isBatchApplied);
         }
 
     }
@@ -201,7 +202,6 @@ public class QuadCmdLine {
             }
             if (pathNum >= 2) {
                 linkPath = args[i++].trim();
-                linkPath = "";
             }
             if (!isBatch) {
                 if (pathNum >= 3) {
@@ -330,8 +330,9 @@ public class QuadCmdLine {
     }
 
     private void startTranslation() {
+        isBatchApplied = false;
         outputDir = QuadUtil.getOutputDir(outputPath, isOverwrite, batEngine);
-        LOG.info(QuadUtil.getCurBatchInfo(batEngine, false) + "Importing data...");
+        LOG.info(QuadUtil.getCurBatchInfo(batEngine, isBatchApplied) + "Importing data...");
         if (isFromCRAFT) {
             DssatControllerInput in = new DssatControllerInput();
             HashMap data = in.readFileFromCRAFT(convertPath);
@@ -378,23 +379,23 @@ public class QuadCmdLine {
 
                         } else {
                             LOG.error((String) data.get("errors"));
-                            runNextBatch(null);
+                            quitCurRun(null, isBatchApplied);
                         }
                     }
 
                     @Override
                     public void executeFailed(Task<HashMap> arg0) {
                         LOG.error(getStackTrace(arg0.getFault()));
-                        runNextBatch(arg0);
+                        quitCurRun(arg0, isBatchApplied);
                     }
                 };
                 task.execute(new TaskAdapter<HashMap>(listener));
             } catch (Exception ex) {
-                LOG.error(QuadUtil.getCurBatchInfo(batEngine, false) + getStackTrace(ex));
+                LOG.error(QuadUtil.getCurBatchInfo(batEngine, isBatchApplied) + getStackTrace(ex));
                 if (ex.getClass().getSimpleName().equals("ZipException")) {
-                    LOG.error(QuadUtil.getCurBatchInfo(batEngine, false) + "Please make sure using the latest ADA (no earlier than 0.3.6) to create zip file");
+                    LOG.error(QuadUtil.getCurBatchInfo(batEngine, isBatchApplied) + "Please make sure using the latest ADA (no earlier than 0.3.6) to create zip file");
                 }
-                runNextBatch(null);
+                quitCurRun(null, isBatchApplied);
             }
         }
     }
@@ -402,13 +403,15 @@ public class QuadCmdLine {
     private void applyBatch(HashMap data) {
 
         // Apply batch DOME
-        LOG.info(QuadUtil.getCurBatchInfo(batEngine, false) + "Applying batch [" + batEngine.getBatchName() + "]...");
+        final String batchGID = batEngine.getCurGroupId();
+        LOG.info(QuadUtil.getCurBatchInfo(batEngine, isBatchApplied) + "Applying batch [" + batEngine.getBatchName() + "]...");
 
         ApplyBatchTask task = new ApplyBatchTask(data, batEngine);
         TaskListener<HashMap> listener = new TaskListener<HashMap>() {
 
             @Override
             public void taskExecuted(Task<HashMap> task) {
+                isBatchApplied = true;
                 HashMap data = task.getResult();
                 if (mode.equals(DomeMode.NONE)) {
                     if (!acebOnly) {
@@ -421,8 +424,9 @@ public class QuadCmdLine {
 
             @Override
             public void executeFailed(Task<HashMap> task) {
-                LOG.error(QuadUtil.getCurBatchInfo(batEngine, false) + getStackTrace(task.getFault()));
-                runNextBatch(task);
+                isBatchApplied = !batchGID.equals(batEngine.getCurGroupId());
+                LOG.error(QuadUtil.getCurBatchInfo(batEngine, isBatchApplied) + getStackTrace(task.getFault()));
+                quitCurRun(task, isBatchApplied);
             }
         };
         task.execute(new TaskAdapter<HashMap>(listener));
@@ -587,7 +591,7 @@ public class QuadCmdLine {
                 @Override
                 public void executeFailed(Task<String> arg0) {
                     LOG.error(getStackTrace(arg0.getFault()));
-                    runNextBatch(arg0);
+                    quitCurRun(arg0, isBatchApplied);
                 }
             };
             task.execute(new TaskAdapter<String>(listener));
@@ -619,7 +623,7 @@ public class QuadCmdLine {
             @Override
             public void executeFailed(Task<String> arg0) {
                 LOG.error(getStackTrace(arg0.getFault()));
-                runNextBatch(arg0);
+                quitCurRun(arg0, true);
             }
 
             @Override
@@ -637,6 +641,20 @@ public class QuadCmdLine {
             startTranslation();
         } else if (arg0 != null) {
             arg0.abort();
+            System.exit(0);
+        }
+    }
+
+    private void quitCurRun(Task arg0, boolean isBatchApplied) {
+        if (batEngine != null && !isBatchApplied) {
+            batEngine.getNextBatchRun();
+        }
+        if (batEngine != null && batEngine.hasNext()) {
+            LOG.info("=== Batch " + batEngine.getNextGroupId() + " failed ===");
+            startTranslation();
+        } else if (arg0 != null) {
+            arg0.abort();
+            System.exit(0);
         }
     }
 
