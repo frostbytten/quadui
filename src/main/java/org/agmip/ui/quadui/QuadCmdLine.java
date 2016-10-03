@@ -32,7 +32,7 @@ public class QuadCmdLine {
 
     public enum Model {
 
-        DSSAT, APSIM, SarraHV33, STICS, WOFOST, CropGrowNAU, JSON
+        DSSAT, APSIM, APSIM_Div, SarraHV33, STICS, WOFOST, CropGrowNAU, JSON
     }
     private static final Logger LOG = LoggerFactory.getLogger(QuadCmdLine.class);
     private DomeMode mode = DomeMode.NONE;
@@ -137,6 +137,13 @@ public class QuadCmdLine {
                 addModel(Model.DSSAT.toString());
             } else if (args[i].equalsIgnoreCase("-apsim")) {
                 addModel(Model.APSIM.toString());
+            } else if (args[i].toLowerCase().startsWith("-apsimdiv")) {
+                String size = args[i].toLowerCase().replaceAll("-apsimdiv", "").trim();
+                if (!size.equals("")) {
+                    addModel(Model.APSIM_Div.toString() + "_" + size);
+                } else {
+                    addModel(Model.APSIM_Div.toString());
+                }
             } else if (args[i].equalsIgnoreCase("-sarrahv33")) {
                 addModel(Model.SarraHV33.toString());
             } else if (args[i].equalsIgnoreCase("-stics")) {
@@ -558,6 +565,7 @@ public class QuadCmdLine {
             }
         }
         domeIdHashMap = QuadUtil.saveDomeHashedIds(map, domeIdHashMap);
+        QuadUtil.recordQuadUIVersion(map, quadVersion);
         if (isOverwrite) {
             LOG.info("Clean the previous output folders...");
             String outPath;

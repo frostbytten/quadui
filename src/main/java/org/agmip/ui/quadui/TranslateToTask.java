@@ -21,7 +21,9 @@ import org.agmip.translators.dssat.DssatControllerOutput;
 import org.agmip.translators.dssat.DssatWeatherOutput;
 import org.agmip.acmo.util.AcmoUtil;
 import org.agmip.common.Functions;
+import org.agmip.core.types.DividableOutputTranslator;
 import org.agmip.translators.agmip.AgmipOutput;
+import org.agmip.translators.apsim.ApsimWriterDiv;
 import org.agmip.translators.cropgrownau.CropGrowNAUOutput;
 import org.agmip.translators.stics.SticsOutput;
 import org.agmip.translators.wofost.WofostOutputController;
@@ -41,6 +43,8 @@ public class TranslateToTask extends Task<String> {
     private final ArrayList<String> weatherList, soilList;
     private final String destDirectory;
     private final boolean compress;
+    private boolean isApsimDiv = false;
+    private int divSize = 1;
     private final HashMap<String, String> domeIdHashMap;
     private final HashMap<String, HashMap> modelSpecFiles;
     private static final Logger LOG = LoggerFactory.getLogger(TranslateToTask.class);
@@ -63,6 +67,12 @@ public class TranslateToTask extends Task<String> {
         for (String trType : translateList) {
             if (trType.equals("SarraHV33")) {
                 hasSarraH33 = true;
+            } else if (trType.startsWith("APSIM_Div")) {
+                this.translateList.add("APSIM");
+                isApsimDiv = true;
+                if (trType.startsWith("APSIM_Div_")) {
+                    divSize = Integer.parseInt(trType.replaceAll("APSIM_Div_", ""));
+                }
             } else if (!trType.equals("JSON")) {
                 this.translateList.add(trType);
             }
@@ -146,7 +156,11 @@ public class TranslateToTask extends Task<String> {
             }
         } else if (trType.equals("APSIM")) {
             LOG.info("APSIM Translator Started");
-            translator = new ApsimWriter();
+            if (isApsimDiv) {
+                translator = new ApsimWriterDiv();
+            } else {
+                translator = new ApsimWriter();
+            }
         } else if (trType.equals("STICS")) {
             LOG.info("STICS Translator Started");
             translator = new SticsOutput();
@@ -162,7 +176,12 @@ public class TranslateToTask extends Task<String> {
         }
         if (translator != null) {
             LOG.debug("Translating with :"+translator.getClass().getName());
-            Runnable thread = new TranslateRunner(translator, data, path.toString(), trType, compress);
+            Runnable thread;
+            if (translator instanceof DividableOutputTranslator) {
+                thread = new TranslateRunner(translator, data, path.toString(), trType, compress, divSize);
+            } else {
+                thread = new TranslateRunner(translator, data, path.toString(), trType, compress);
+            }
             executor.execute(thread);
         } else if (newTranslator != null) {
             LOG.debug("Translating with :"+newTranslator.getClass().getName());
