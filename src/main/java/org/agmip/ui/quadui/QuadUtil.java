@@ -227,6 +227,13 @@ public class QuadUtil {
             LOG.warn(Functions.getStackTrace(e));
         }
     }
+    
+    public static void recordQuadUIVersion(HashMap map, String quaduiVer) {
+        ArrayList<HashMap> exps = MapUtil.getObjectOr(map, "experiments", new ArrayList());
+        for (HashMap exp : exps) {
+            exp.put("quaduiVer", quaduiVer);
+        }
+    }
 
     public static HashMap<String, String> saveDomeHashedIds(HashMap map, HashMap<String, String> domeIdHashMap) {
         HashMap<String, String> ret = domeIdHashMap;
