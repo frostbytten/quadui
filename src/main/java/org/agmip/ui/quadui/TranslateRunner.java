@@ -10,6 +10,7 @@ import org.agmip.core.types.TranslatorOutput;
 
 import org.agmip.ace.AceDataset;
 import org.agmip.common.Functions;
+import org.agmip.core.types.DividableOutputTranslator;
 
 
 public class TranslateRunner implements Runnable {
@@ -22,14 +23,20 @@ public class TranslateRunner implements Runnable {
     private final boolean compress;
     private static Logger LOG = LoggerFactory.getLogger(TranslateRunner.class);
     private final boolean isNewTranslator;
+    private final int size;
 
-    public TranslateRunner(TranslatorOutput translator, HashMap data, String outputDirectory, String model, boolean compress) {
+    public TranslateRunner(TranslatorOutput translator, HashMap data, String outputDirectory, String model, boolean compress, int size) {
         this.translator = translator;
         this.data = data;
         this.outputDirectory = outputDirectory;
         this.model = model;
         this.compress = compress;
         this.isNewTranslator = false;
+        this.size = size;
+    }
+    
+    public TranslateRunner(TranslatorOutput translator, HashMap data, String outputDirectory, String model, boolean compress) {
+        this(translator, data, outputDirectory, model, compress, 1);
     }
 
     public TranslateRunner(org.agmip.ace.translators.io.TranslatorOutput translator, AceDataset aceData, String outputDirectory, String model, boolean compress) {
@@ -39,6 +46,7 @@ public class TranslateRunner implements Runnable {
         this.model = model;
         this.compress = compress;
         this.isNewTranslator = true;
+        size = 1;
     }
 
 
@@ -49,6 +57,12 @@ public class TranslateRunner implements Runnable {
         try {
             if (isNewTranslator) {
                 newTranslator.write(new File(outputDirectory), aceData);
+            } else if (this.size != 1) {
+                if (translator instanceof DividableOutputTranslator) {
+                    ((DividableOutputTranslator) translator).writeFile(outputDirectory, data, size);
+                } else {
+                    translator.writeFile(outputDirectory, data);
+                }
             } else {
                 translator.writeFile(outputDirectory, data);
             }

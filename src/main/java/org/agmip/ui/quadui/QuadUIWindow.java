@@ -1,5 +1,6 @@
 package org.agmip.ui.quadui;
 
+import adjustments.WeatherAdjustAdaptor;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -76,6 +77,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private Checkbox optionLinkage = null;
     private Checkbox optionBatch = null;
     private Checkbox optionAcebOnly = null;
+    private Checkbox optionApsimDiv = null;
     private Label txtStatus = null;
     private Label txtAutoDomeApplyMsg = null;
     private Label txtVersion = null;
@@ -101,6 +103,7 @@ public class QuadUIWindow extends Window implements Bindable {
     private boolean autoApply = false;
     private boolean acebOnly = false;
     private boolean acebOnlyRet = true;
+    private boolean apsimDiv = false;
 //    private boolean isMultiInput = false;
     private boolean isExpActived = true;
     private boolean isWthActived = true;
@@ -265,6 +268,7 @@ public class QuadUIWindow extends Window implements Bindable {
         optionLinkage       = (Checkbox) ns.get("option-linkage");
         optionBatch         = (Checkbox) ns.get("option-batch");
         optionAcebOnly      = (Checkbox) ns.get("option-acebonly");
+        optionApsimDiv      = (Checkbox) ns.get("option-apsimdiv");
 
         checkboxGroup.add(modelApsim);
         checkboxGroup.add(modelDssat);
@@ -722,6 +726,20 @@ public class QuadUIWindow extends Window implements Bindable {
             }
         });
 
+        optionApsimDiv.getButtonStateListeners().add(new ButtonStateListener() {
+            @Override
+            public void stateChanged(Button button, State state) {
+                apsimDiv = !state.equals(State.SELECTED);
+            }
+        });
+
+        modelApsim.getButtonStateListeners().add(new ButtonStateListener() {
+            @Override
+            public void stateChanged(Button button, State state) {
+                optionApsimDiv.setEnabled(!state.equals(State.SELECTED));
+            }
+        });
+
         initCheckBox(modelApsim, "last_model_select_apsim");
         initCheckBox(modelDssat, "last_model_select_dssat");
         initCheckBox(modelSarrah33, "last_model_select_sarrah33");
@@ -731,6 +749,8 @@ public class QuadUIWindow extends Window implements Bindable {
         initCheckBox(modelJson, "last_model_select_json");
         initCheckBox(optionCompress, "last_option_select_compress");
         initCheckBox(optionOverwrite, "last_option_select_overwrite");
+        initCheckBox(optionApsimDiv, "last_option_select_apsimdiv", true);
+        optionApsimDiv.setEnabled(modelApsim.isSelected());
     }
 
     private void prepareBatchRun() {
@@ -745,6 +765,9 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void startTranslation() {
+        // Init the static cache for weasther adjustment setting
+        WeatherAdjustAdaptor.init();
+        
         isBatchApplied = false;
         enableConvertIndicator(true);
         outputDir = QuadUtil.getOutputDir(outputText.getText(), optionOverwrite.isSelected(), batEngine);
@@ -1046,12 +1069,17 @@ public class QuadUIWindow extends Window implements Bindable {
         }
         txtStatus.setText(getCurBatchInfo() + "Generating model input files...");
         domeIdHashMap = QuadUtil.saveDomeHashedIds(map, domeIdHashMap);
-        ArrayList<String> models = new ArrayList<String>();
+        QuadUtil.recordQuadUIVersion(map, quadVersion);
+        ArrayList<String> models = new ArrayList();
         if (modelJson.isSelected()) {
             models.add("JSON");
         }
         if (modelApsim.isSelected()) {
-            models.add("APSIM");
+            if (apsimDiv) {
+                models.add("APSIM_Div");
+            } else {
+                models.add("APSIM");
+            }
         }
         if (modelDssat.isSelected()) {
             models.add("DSSAT");
@@ -1152,7 +1180,7 @@ public class QuadUIWindow extends Window implements Bindable {
                 quitCurRun(false, isBatchApplied);
             }
         };
-        task.execute(new TaskAdapter<String>(listener));
+        task.execute(new TaskAdapter(listener));
     }
 
     private static String getStackTrace(Throwable aThrowable) {
@@ -1200,8 +1228,8 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void quitCurRun(boolean enabled, boolean isBatchApplied) {
-        txtStatus.setText(txtStatus.getText() + "failed!");
         if (batEngine != null && !isBatchApplied) {
+            txtStatus.setText(txtStatus.getText() + "failed!");
             batEngine.getNextBatchRun();
         }
         if (!enabled && batEngine != null && batEngine.hasNext()) {
@@ -1306,9 +1334,13 @@ public class QuadUIWindow extends Window implements Bindable {
     }
 
     private void initCheckBox(Checkbox cb, final String lastSelectId) {
-        boolean lastChoice = false;
+        initCheckBox(cb, lastSelectId, false);
+    }
+    
+    private void initCheckBox(Checkbox cb, final String lastSelectId, boolean defSelected) {
+        boolean lastChoice = defSelected;
         if (pref != null) {
-            lastChoice = pref.getBoolean(lastSelectId, false);
+            lastChoice = pref.getBoolean(lastSelectId, defSelected);
         }
         cb.setSelected(lastChoice);
         cb.getButtonStateListeners().add(new ButtonStateListener() {
