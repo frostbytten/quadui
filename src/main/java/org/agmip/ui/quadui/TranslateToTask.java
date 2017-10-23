@@ -48,6 +48,7 @@ public class TranslateToTask extends Task<String> {
     private final HashMap<String, String> domeIdHashMap;
     private final HashMap<String, HashMap> modelSpecFiles;
     private static final Logger LOG = LoggerFactory.getLogger(TranslateToTask.class);
+    private final boolean isRunCmd;
     
 
     public TranslateToTask(ArrayList<String> translateList, HashMap data, String destDirectory, boolean compress, HashMap<String, String> domeIdHashMap, HashMap<String, HashMap> modelSpecFiles) {
@@ -88,6 +89,12 @@ public class TranslateToTask extends Task<String> {
                 soilList.add((String) soils.get("soil_id"));
             }
         }
+        StackTraceElement stack[] = (new Throwable()).getStackTrace();
+        if (stack.length > 1) {
+            this.isRunCmd = stack[1].getClassName().endsWith(QuadCmdLine.class.getName());
+        } else {
+            this.isRunCmd = false;
+        }
     }
 
     @Override
@@ -120,6 +127,17 @@ public class TranslateToTask extends Task<String> {
                 if (hasSarraH33) {
                     LOG.info("SarraHV33 Translator Started");
                     File destDir = createModelDestDirectory(destDirectory, "SarraHV33");
+                    // Dump the model specific files into corresponding model folder
+                    if (modelSpecFiles != null) {
+                        HashMap modelFiles = (HashMap) modelSpecFiles.get("sarrahv33");
+                        if (modelFiles != null && !modelFiles.isEmpty()) {
+                            try {
+                                new ModelFileDumperOutput().writeFile(destDir.toString(), modelFiles);
+                            } catch (Exception e) {
+                                LOG.error(Functions.getStackTrace(e));
+                            }
+                        }
+                    }
                     Runnable thread = new TranslateRunnerSarraH(aceData, destDir.toString(), "SarraHV33", compress);
                     executor.execute(thread);
                 }
@@ -161,6 +179,7 @@ public class TranslateToTask extends Task<String> {
             } else {
                 translator = new ApsimWriter();
             }
+            ((ApsimWriter) translator).setOutputCraftBat(this.isRunCmd);
         } else if (trType.equals("STICS")) {
             LOG.info("STICS Translator Started");
             translator = new SticsOutput();
