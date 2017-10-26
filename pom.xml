@@ -118,7 +118,7 @@
         <dependency>
             <groupId>org.agmip.ace</groupId>
             <artifactId>ace-core</artifactId>
-            <version>2.0.1-SNAPSHOT</version>
+            <version>2.1.1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.agmip.translators.ace</groupId>
